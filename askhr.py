@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import openai
@@ -16,60 +15,67 @@ def load_policy():
     with open("Capital_Partners_Code_of_Conduct.txt", "r", encoding="utf-8") as f:
         return f.read()
 
-# Load data
+def authenticate_user(ecode, pin, df):
+    user = df[df["Ecode"] == ecode]
+    if not user.empty and str(user["PIN"].values[0]).zfill(4) == pin:
+        return user.iloc[0]["Name"]
+    return None
+
 salary_df = load_salary_data()
 vacation_df = load_vacation_data()
 policy_text = load_policy()
 
-# UI
 st.title("ASK HR")
 st.subheader("HR Department - Tawfeer")
 st.markdown("Hello 👋 I’m AskHR, your smart assistant for quick HR help. Ask me anything!")
 
-api_key = st.text_input("Enter your OpenAI API Key:", type="password")
-if not api_key:
+openai_api_key = st.text_input("Enter your OpenAI API Key:", type="password")
+if not openai_api_key:
     st.warning("Please enter your OpenAI API key to proceed.")
     st.stop()
 
-ecode_list = salary_df["Ecode"].astype(str).unique()
-selected_ecode = st.selectbox("Select your Ecode", ecode_list)
-employee_row = salary_df[salary_df["Ecode"].astype(str) == selected_ecode].iloc[0]
+ecode = st.text_input("Enter your Ecode:")
+pin = st.text_input("Enter your 4-digit PIN:", type="password", max_chars=4)
 
-pin_input = st.text_input("Enter your 4-digit PIN", type="password")
-correct_pin = str(employee_row["PIN"]).zfill(4)
-
-if pin_input != correct_pin:
-    st.error("Incorrect PIN")
+if not ecode or not pin:
     st.stop()
 
-employee_name = employee_row["Name"]
+employee_name = authenticate_user(ecode, pin, salary_df)
+if not employee_name:
+    st.error("Invalid Ecode or PIN.")
+    st.stop()
+
+st.success(f"Welcome {employee_name}!")
+
 user_question = st.text_input("What do you want to ask?")
 
 if user_question:
-    messages = [
+    openai.api_key = openai_api_key
+
+    context = [
         {"role": "system", "content": f"You are an HR assistant. Answer based on this HR policy:
 {policy_text}"},
-        {"role": "user", "content": f"Employee Name: {employee_name}
-Ecode: {selected_ecode}
-Question: {user_question}"}
+        {"role": "user", "content": f"Employee {employee_name} asked: {user_question}"}
     ]
 
-    openai.api_key = api_key
     try:
-        with st.spinner("Thinking..."):
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=messages
-            )
-            answer = response['choices'][0]['message']['content']
-            st.success(answer)
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=context
+        )
+        answer = response.choices[0].message.content
+        st.write(answer)
     except Exception as e:
-        st.error(str(e))
+        st.error(f"Error: {str(e)}")
 
     if "salary" in user_question.lower():
-        st.subheader("Salary Breakdown")
-        st.dataframe(salary_df[salary_df["Ecode"].astype(str) == selected_ecode])
+        selected_salary = salary_df[salary_df["Ecode"] == ecode]
+        if not selected_salary.empty:
+            st.subheader("Your Salary Breakdown:")
+            st.dataframe(selected_salary)
 
     if "vacation" in user_question.lower():
-        st.subheader("Vacation Balance")
-        st.dataframe(vacation_df[vacation_df["Ecode"].astype(str) == selected_ecode])
+        selected_vacation = vacation_df[vacation_df["Ecode"] == ecode]
+        if not selected_vacation.empty:
+            st.subheader("Your Vacation Details:")
+            st.dataframe(selected_vacation)
