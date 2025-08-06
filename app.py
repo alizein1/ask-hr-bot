@@ -1,15 +1,16 @@
+
 import streamlit as st
 import pandas as pd
+import openai
 import base64
 from datetime import datetime
-from openai import OpenAI
-from openai import OpenAIError
 
 # === CONFIG ===
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # === LOAD DATA ===
 data = pd.read_excel("PROLOGISTICS.xlsx", sheet_name="FULL TIMERS")
+data.columns = data.columns.str.strip()  # Clean column names
 data["Name"] = data["Name"].str.strip().str.lower()
 data["ECODE"] = data["ECODE"].str.strip().str.upper()
 pin_map = pd.read_csv("Employee_PIN_List.csv")
@@ -100,8 +101,11 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
             response = f"{name}, you have **{days} days** of annual leave remaining."
 
         elif "social" in prompt.lower():
-            ssn = user_row.iloc[0].get("Social Security Number", "Not Available")
-            response = f"Your Social Security Number is: **{ssn}**" if pd.notna(ssn) else "Your Social Security Number is not available. Please contact HR."
+            ssn = user_row.iloc[0].get("Social Security Number")
+            if pd.isna(ssn) or not ssn:
+                response = "Your Social Security Number is not available. Please contact HR."
+            else:
+                response = f"Your Social Security Number is: **{ssn}**"
 
         elif "join" in prompt.lower():
             date = user_row.iloc[0]['JOINING DATE']
@@ -115,15 +119,17 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
 
         else:
             try:
-                ai_response = client.chat.completions.create(
+                from openai import OpenAI
+                client = OpenAI()
+                chat = client.chat.completions.create(
                     model="gpt-4o",
                     messages=[
                         {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
                         {"role": "user", "content": prompt}
                     ]
                 )
-                response = ai_response.choices[0].message.content
-            except OpenAIError:
+                response = chat.choices[0].message.content
+            except:
                 response = "Unable to connect to OpenAI. Please try again later."
 
         st.markdown(response)
