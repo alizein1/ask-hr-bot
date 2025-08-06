@@ -79,46 +79,44 @@ if st.session_state.logged_in:
     name = user_row.iloc[0]['Name'].title()
     user_code = user_row.iloc[0]['ECODE']
 
-    prompt = st.text_area("Ask me anything (salary, leaves, law, etc.)")
-    if st.button("Ask"):
-        response = ""
+from openai import OpenAI
+client = OpenAI()
 
-        if "salary" in prompt.lower():
-            salary = user_row.iloc[0]['Total']
-            breakdown = user_row.iloc[0][['BCSA', 'TRANSPORT', 'INCOMETAX', 'Total Ded']]
-            response = f"\n**Salary Breakdown for {name}:**\n\nBasic: ${breakdown['BCSA']}\n\nTransport: ${breakdown['TRANSPORT']}\n\nIncome Tax: ${breakdown['INCOMETAX']}\n\nTotal Deductions: ${breakdown['Total Ded']}\n\n**Net Salary: ${salary}**"
+prompt = st.text_area("Ask me anything (salary, leaves, law, etc.)")
+if st.button("Ask"):
+    response = ""
 
-        elif "leave" in prompt.lower() or "vacation" in prompt.lower():
-            days = user_row.iloc[0]['ANNUAL LEAVES']
-            response = f"{name}, you have **{days} days** of annual leave remaining."
+    if "salary" in prompt.lower():
+        salary = user_row.iloc[0]['Total']
+        breakdown = user_row.iloc[0][['BCSA', 'TRANSPORT', 'INCOMETAX', 'Total Ded']]
+        response = f"\n**Salary Breakdown for {name}:**\n\nBasic: ${breakdown['BCSA']}\n\nTransport: ${breakdown['TRANSPORT']}\n\nIncome Tax: ${breakdown['INCOMETAX']}\n\nTotal Deductions: ${breakdown['Total Ded']}\n\n**Net Salary: ${salary}**"
 
-        elif "social" in prompt.lower():
-            ssn = user_row.iloc[0]['Social Security Number']
-            response = f"Your Social Security Number is: **{ssn}**"
+    elif "leave" in prompt.lower() or "vacation" in prompt.lower():
+        days = user_row.iloc[0]['ANNUAL LEAVES']
+        response = f"{name}, you have **{days} days** of annual leave remaining."
 
-        elif "join" in prompt.lower():
-            date = user_row.iloc[0]['JOINING DATE']
-            response = f"Your joining date is: **{pd.to_datetime(date).strftime('%d %B %Y')}**"
+    elif "social" in prompt.lower():
+        ssn = user_row.iloc[0]['Social Security Number']
+        response = f"Your Social Security Number is: **{ssn}**"
 
-        elif any(word in prompt.lower() for word in ["sad", "angry", "depressed", "bad"]):
-            response = "I'm here for you. Sometimes, talking to someone or taking a short walk can help. If you're feeling overwhelmed, don't hesitate to reach out to our HR team confidentially. You matter. 💖"
+    elif "join" in prompt.lower():
+        date = user_row.iloc[0]['JOINING DATE']
+        response = f"Your joining date is: **{pd.to_datetime(date).strftime('%d %B %Y')}**"
 
-        elif any(word in prompt.lower() for word in ["joke", "funny"]):
-            response = "Why did the HR manager bring a ladder to work? Because they were going for a raise! 🌟"
+    elif any(word in prompt.lower() for word in ["sad", "angry", "depressed", "bad"]):
+        response = "I'm here for you. Sometimes, talking to someone or taking a short walk can help. If you're feeling overwhelmed, don't hesitate to reach out to our HR team confidentially. You matter. 💖"
 
-               else:
-            from openai import OpenAI
-            client = OpenAI()
+    elif any(word in prompt.lower() for word in ["joke", "funny"]):
+        response = "Why did the HR manager bring a ladder to work? Because they were going for a raise! 🌟"
 
-            chat_response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You're a bilingual HR assistant for a Lebanese company. Be helpful and reply in Arabic if asked in Arabic, otherwise use English."},
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            response = chat_response.choices[0].message.content
+    else:
+        chat_response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You're a bilingual HR assistant for a Lebanese company. Be helpful and reply in Arabic if asked in Arabic, otherwise use English."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        response = chat_response.choices[0].message.content
 
-
-
-        st.markdown(response)
+    st.markdown(response)
