@@ -114,14 +114,18 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
 
         else:
             try:
-                openai_response = openai.ChatCompletion.create(
-                    model="gpt-4o",
-                    messages=[
-                        {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
-                        {"role": "user", "content": prompt}
-                    ]
-                )
-                response = openai_response.choices[0].message.content
+from openai import OpenAI
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+chat_completion = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[
+        {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
+        {"role": "user", "content": prompt}
+    ]
+)
+response = chat_completion.choices[0].message.content
+
             except Exception as e:
                 response = f"Unable to connect to OpenAI. Error: {str(e)}"
 
