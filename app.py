@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import openai
@@ -88,34 +87,49 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
         response = ""
 
         if "salary" in prompt.lower():
-            salary = user_row.iloc[0]['Total']
             breakdown = user_row.iloc[0][['BCSA', 'TRANSPORT', 'INCOMETAX', 'Total Ded']]
-            response = f"**Salary Breakdown for {name}:**\n\n"
-            response += f"Basic: ${breakdown['BCSA']}\nTransport: ${breakdown['TRANSPORT']}\n"
-            response += f"Income Tax: ${breakdown['INCOMETAX']}\nDeductions: ${breakdown['Total Ded']}\n"
-            response += f"**Net Salary: ${salary}**"
+            salary = user_row.iloc[0]['Total']
+            salary_df = pd.DataFrame({
+                "Component": ['Basic', 'Transport', 'Income Tax', 'Total Deductions', 'Net Salary'],
+                "Amount": [
+                    breakdown['BCSA'],
+                    breakdown['TRANSPORT'],
+                    breakdown['INCOMETAX'],
+                    breakdown['Total Ded'],
+                    salary
+                ]
+            })
+            st.markdown(f"**Salary Breakdown for {name}:**")
+            st.table(salary_df)
 
         elif "leave" in prompt.lower() or "vacation" in prompt.lower():
             days = user_row.iloc[0]['ANNUAL LEAVES']
             response = f"{name}, you have **{days} days** of annual leave remaining."
+            st.markdown(response)
 
         elif "social" in prompt.lower():
-            ssn = user_row.iloc[0].get("Social Security Number", "Not Available")
+            ssn = user_row.iloc[0].get("SOCIAL SECURITY NUMBER", "Not Available")
             response = f"Your Social Security Number is: **{ssn}**" if pd.notna(ssn) else "Your Social Security Number is not available. Please contact HR."
+            st.markdown(response)
 
         elif "join" in prompt.lower():
             date = user_row.iloc[0]['JOINING DATE']
             response = f"Your joining date is: **{pd.to_datetime(date).strftime('%d %B %Y')}**"
+            st.markdown(response)
 
         elif any(word in prompt.lower() for word in ["sad", "angry", "depressed", "bad"]):
-            response = "I'm here for you. 🌈 Take a break, drink water, talk to someone you trust. You matter. 💖"
+            st.markdown("I'm here for you. 🌈 Take a break, drink water, talk to someone you trust. You matter. 💖")
 
         elif any(word in prompt.lower() for word in ["joke", "funny"]):
-            response = "Why did the HR manager sit at their desk all day? Because they couldn't *stand* anymore meetings! 😄"
+            st.markdown("Why did the HR manager sit at their desk all day? Because they couldn't *stand* anymore meetings! 😄")
+
+        elif any(word in prompt.lower() for word in ["quote", "motivation", "hr quote"]):
+            st.image("1753186824732.jpg", use_column_width=True)
+            st.image("1753858092673.jpg", use_column_width=True)
 
         else:
             try:
-                openai_response = openai.chat.completions.create(
+                openai_response = openai.ChatCompletion.create(
                     model="gpt-4o",
                     messages=[
                         {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
@@ -123,7 +137,6 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
                     ]
                 )
                 response = openai_response.choices[0].message.content
+                st.markdown(response)
             except:
-                response = "Unable to connect to OpenAI. Please try again later."
-
-        st.markdown(response)
+                st.error("Unable to connect to OpenAI. Please try again later.")
