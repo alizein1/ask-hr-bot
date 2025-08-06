@@ -31,7 +31,7 @@ def set_background(image_path):
         </style>
     """, unsafe_allow_html=True)
 
-set_background("LETTER_HEAD.pdf")
+set_background("CP Letter Head.jpg")
 
 # === HR TEAM HEADER ===
 st.image("assets/HRTEAM.jpg", width=300)
