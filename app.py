@@ -6,6 +6,9 @@ import base64
 from datetime import datetime
 from dashboard_module import show_hr_dashboard
 
+# In your prompt logic:
+elif any(word in prompt.lower() for word in ["dashboard", "age", "grade", "band", "gender", "company", "title", "nationality"]):
+    show_hr_dashboard()
 # === CONFIG ===
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
