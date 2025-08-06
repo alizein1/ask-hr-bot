@@ -1,4 +1,4 @@
-# app.py
+
 import streamlit as st
 import pandas as pd
 from utils.openai_utils import ask_openai, ask_hr_excel_bot
