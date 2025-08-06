@@ -3,20 +3,20 @@ import streamlit as st
 import pandas as pd
 import openai
 import base64
-from datetime import datetime
-from dashboard_module import show_hr_dashboard
+import matplotlib.pyplot as plt
+
+from dashboard_module import show_hr_dashboard  # External module for dashboard
 
 # === CONFIG ===
 openai.api_key = st.secrets["OPENAI_API_KEY"]
+st.set_page_config(page_title="Ask HR - Capital Partners", layout="wide")
 
 # === LOAD DATA ===
 data = pd.read_excel("PROLOGISTICS.xlsx", sheet_name="FULL TIMERS")
 data["Name"] = data["Name"].str.strip().str.lower()
 data["ECODE"] = data["ECODE"].str.strip().str.upper()
 pin_map = pd.read_csv("Employee_PIN_List.csv")
-
-# === PAGE CONFIG ===
-st.set_page_config(page_title="Ask HR - Capital Partners", layout="wide")
+dashboard_data = pd.read_excel("Mass file - To be used for Dashboard.xlsx")
 
 # === BACKGROUND IMAGE ===
 def set_background(image_path):
@@ -36,8 +36,11 @@ def set_background(image_path):
 
 set_background("CP Letter Head.jpg")
 
-# === HEADER IMAGE ===
-st.image("middle_banner_image.png", width=400, use_column_width="always")
+# === HR TEAM IMAGE ===
+try:
+    st.image("ChatGPT Image Aug 6, 2025, 05_15_34 PM.png", width=200)
+except:
+    pass
 
 st.markdown("# 👨‍💼 Ask HR")
 
@@ -85,7 +88,6 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
 
     if st.button("Ask"):
         response = ""
-
         if "salary" in prompt.lower():
             salary = user_row.iloc[0]['Total']
             breakdown = user_row.iloc[0][['BCSA', 'TRANSPORT', 'INCOMETAX', 'Total Ded']]
@@ -99,7 +101,7 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
             response = f"{name}, you have **{days} days** of annual leave remaining."
 
         elif "social" in prompt.lower():
-            ssn = user_row.iloc[0].get("SOCIAL SECURITY NUMBER", "Not Available")
+            ssn = user_row.iloc[0].get("Social Security Number", "Not Available")
             response = f"Your Social Security Number is: **{ssn}**" if pd.notna(ssn) else "Your Social Security Number is not available. Please contact HR."
 
         elif "join" in prompt.lower():
@@ -113,21 +115,23 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
             response = "Why did the HR manager sit at their desk all day? Because they couldn't *stand* anymore meetings! 😄"
 
         elif any(word in prompt.lower() for word in ["dashboard", "age", "grade", "band", "gender", "company", "title", "nationality"]):
-            show_hr_dashboard()
+            show_hr_dashboard(dashboard_data, prompt.lower())
+            response = ""
 
         else:
             try:
                 from openai import OpenAI
-                client = OpenAI()
-                completion = client.chat.completions.create(
+                client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+                chat = client.chat.completions.create(
                     model="gpt-4o",
                     messages=[
                         {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
                         {"role": "user", "content": prompt}
                     ]
                 )
-                response = completion.choices[0].message.content
+                response = chat.choices[0].message.content
             except:
                 response = "Unable to connect to OpenAI. Please try again later."
 
-        st.markdown(response)
+        if response:
+            st.markdown(response)
