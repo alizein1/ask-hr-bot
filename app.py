@@ -5,7 +5,7 @@ import base64
 from datetime import datetime
 
 # === CONFIG ===
-openai.api_key = st.secrets["OPENAI_API_KEY"]  # Add your key to Streamlit Secrets
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # === LOAD DATA ===
 data = pd.read_excel("PROLOGISTICS.xlsx", sheet_name="FULL TIMERS")
@@ -16,19 +16,21 @@ pin_map = pd.read_csv("Employee_PIN_List.csv")
 # === PAGE CONFIG ===
 st.set_page_config(page_title="Ask HR - Capital Partners", layout="wide")
 
-# === BACKGROUND STYLING ===
+# === BACKGROUND IMAGE ===
 def set_background(image_path):
-    with open(image_path, "rb") as img_file:
-        img_bytes = img_file.read()
-    encoded = base64.b64encode(img_bytes).decode()
-    st.markdown(f"""
+    with open(image_path, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode()
+    st.markdown(
+        f"""
         <style>
         .stApp {{
             background-image: url('data:image/jpeg;base64,{encoded}');
             background-size: cover;
         }}
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
 set_background("CP Letter Head.jpg")
 
@@ -39,10 +41,13 @@ except Exception:
     st.warning("HR team image not found or unreadable.")
 st.markdown("# 👨‍💼 Ask HR")
 
-# === LOGIN ===
+# === SESSION INIT ===
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+if "user_row" not in st.session_state:
+    st.session_state.user_row = None
 
+# === LOGIN ===
 if not st.session_state.logged_in:
     with st.form("login_form"):
         st.subheader("Employee Login")
@@ -51,30 +56,29 @@ if not st.session_state.logged_in:
         submitted = st.form_submit_button("Login")
 
     if submitted:
-        user_row = None
         try:
+            user_row = None
             if ecode_or_name.upper() in data.ECODE.values:
                 user_row = data[data.ECODE == ecode_or_name.upper()]
             elif ecode_or_name in data.Name.values:
                 user_row = data[data.Name == ecode_or_name]
 
             if user_row is not None and not user_row.empty:
-                user_ecode = user_row.iloc[0]["ECODE"]
-                pin_match = pin_map[(pin_map["ECODE"] == user_ecode) & (pin_map["PIN"] == int(pin_input))]
+                ecode = user_row.iloc[0]["ECODE"]
+                pin_match = pin_map[(pin_map["ECODE"] == ecode) & (pin_map["PIN"] == int(pin_input))]
                 if not pin_match.empty:
                     st.session_state.logged_in = True
                     st.session_state.user_row = user_row
-                    st.experimental_rerun()
+                    st.success("Access granted. How can I help you today?")
                 else:
                     st.error("Invalid PIN.")
             else:
-                st.error("ECODE or Name not found.")
-
+                st.error("Invalid ECODE or Name.")
         except Exception:
             st.error("Login failed. Please try again.")
 
-# === MAIN INTERFACE ===
-if st.session_state.logged_in:
+# === MAIN BOT ===
+if st.session_state.logged_in and st.session_state.user_row is not None:
     user_row = st.session_state.user_row
     name = user_row.iloc[0]['Name'].title()
     prompt = st.text_area("Ask me anything (salary, leaves, law, etc.)")
@@ -85,4 +89,40 @@ if st.session_state.logged_in:
         if "salary" in prompt.lower():
             salary = user_row.iloc[0]['Total']
             breakdown = user_row.iloc[0][['BCSA', 'TRANSPORT', 'INCOMETAX', 'Total Ded']]
-            response = f"\n**Salary Breakdown for {name}:**\n\nBasic: ${breakdown['BCSA']}\n\nTransport: ${breakdown['TRANSPORT']}\n\nIncome Tax: ${breakdow
+            response = f"**Salary Breakdown for {name}:**\n\n"
+            response += f"Basic: ${breakdown['BCSA']}\nTransport: ${breakdown['TRANSPORT']}\n"
+            response += f"Income Tax: ${breakdown['INCOMETAX']}\nDeductions: ${breakdown['Total Ded']}\n"
+            response += f"**Net Salary: ${salary}**"
+
+        elif "leave" in prompt.lower() or "vacation" in prompt.lower():
+            days = user_row.iloc[0]['ANNUAL LEAVES']
+            response = f"{name}, you have **{days} days** of annual leave remaining."
+
+        elif "social" in prompt.lower():
+            ssn = user_row.iloc[0].get("Social Security Number", "Not Available")
+            response = f"Your Social Security Number is: **{ssn}**" if pd.notna(ssn) else "Your Social Security Number is not available. Please contact HR."
+
+        elif "join" in prompt.lower():
+            date = user_row.iloc[0]['JOINING DATE']
+            response = f"Your joining date is: **{pd.to_datetime(date).strftime('%d %B %Y')}**"
+
+        elif any(word in prompt.lower() for word in ["sad", "angry", "depressed", "bad"]):
+            response = "I'm here for you. 🌈 Take a break, drink water, talk to someone you trust. You matter. 💖"
+
+        elif any(word in prompt.lower() for word in ["joke", "funny"]):
+            response = "Why did the HR manager sit at their desk all day? Because they couldn't *stand* anymore meetings! 😄"
+
+        else:
+            try:
+                openai_response = openai.ChatCompletion.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                response = openai_response.choices[0].message.content
+            except:
+                response = "Unable to connect to OpenAI. Please try again later."
+
+        st.markdown(response)
