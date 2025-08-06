@@ -23,10 +23,11 @@ policy_text = load_policy()
 
 def is_excel_related(prompt, df):
     prompt = prompt.lower()
-    for col in df.columns:
-        if col.lower() in prompt:
-            return True
-    return any(keyword in prompt for keyword in ["how many", "count", "average", "list", "show", "distribution", "per", "by", "compare"])
+    keywords = ["dashboard", "distribution", "count", "how many", "list", "number", "show", "compare", "breakdown"]
+    columns = [col.lower() for col in df.columns]
+
+    return any(word in prompt for word in keywords + columns)
+
 
 if prompt:
     if is_excel_related(prompt, df):
