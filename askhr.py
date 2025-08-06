@@ -1,7 +1,7 @@
 
 import streamlit as st
-import openai
 import pandas as pd
+import openai
 
 @st.cache_data
 def load_salary_data():
@@ -16,49 +16,60 @@ def load_policy():
     with open("Capital_Partners_Code_of_Conduct.txt", "r", encoding="utf-8") as f:
         return f.read()
 
+# Load data
 salary_df = load_salary_data()
 vacation_df = load_vacation_data()
 policy_text = load_policy()
 
+# UI
 st.title("ASK HR")
 st.subheader("HR Department - Tawfeer")
 st.markdown("Hello 👋 I’m AskHR, your smart assistant for quick HR help. Ask me anything!")
 
 api_key = st.text_input("Enter your OpenAI API Key:", type="password")
-
 if not api_key:
     st.warning("Please enter your OpenAI API key to proceed.")
     st.stop()
 
-openai.api_key = api_key
+ecode_list = salary_df["Ecode"].astype(str).unique()
+selected_ecode = st.selectbox("Select your Ecode", ecode_list)
+employee_row = salary_df[salary_df["Ecode"].astype(str) == selected_ecode].iloc[0]
 
-employee_name = st.selectbox("Select your name", salary_df["Name"].unique())
+pin_input = st.text_input("Enter your 4-digit PIN", type="password")
+correct_pin = str(employee_row["PIN"]).zfill(4)
 
+if pin_input != correct_pin:
+    st.error("Incorrect PIN")
+    st.stop()
+
+employee_name = employee_row["Name"]
 user_question = st.text_input("What do you want to ask?")
 
 if user_question:
-    with st.spinner("Thinking..."):
-        context = f"""
-You are an HR assistant bot. Below is the HR policy and employee data. Use it to answer user questions in a clear and helpful way.
+    messages = [
+        {"role": "system", "content": f"You are an HR assistant. Answer based on this HR policy:
+{policy_text}"},
+        {"role": "user", "content": f"Employee Name: {employee_name}
+Ecode: {selected_ecode}
+Question: {user_question}"}
+    ]
 
-Company HR Policy:
-{policy_text}
-
-Employee Salary Info:
-{salary_df[salary_df["Name"] == employee_name].to_string(index=False)}
-
-Employee Vacation Info:
-{vacation_df[vacation_df["Name"] == employee_name].to_string(index=False)}
-
-Question: {user_question}
-"""
-
-        try:
-            response = openai.chat.completions.create(
+    openai.api_key = api_key
+    try:
+        with st.spinner("Thinking..."):
+            response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
-                messages=[{"role": "system", "content": context}],
-                max_tokens=500
+                messages=messages
             )
-            st.success(response.choices[0].message.content.strip())
-        except Exception as e:
-            st.error(f"Error: {e}")
+            answer = response['choices'][0]['message']['content']
+            st.success(answer)
+    except Exception as e:
+        st.error(str(e))
+
+    if "salary" in user_question.lower():
+        st.subheader("Salary Breakdown")
+        st.dataframe(salary_df[salary_df["Ecode"].astype(str) == selected_ecode])
+
+    if "vacation" in user_question.lower():
+        st.subheader("Vacation Balance")
+        st.dataframe(vacation_df[vacation_df["Ecode"].astype(str) == selected_ecode])
