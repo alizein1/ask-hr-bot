@@ -58,10 +58,10 @@ if submitted:
 
         pin_match = pin_map[(pin_map["ECODE"] == user_row.iloc[0]["ECODE"]) & (pin_map["PIN"] == int(pin_input))]
 
-        if user_row is not None and not pin_match.empty:
-            st.success("Access granted. How can I help you today?")
-            name = user_row.iloc[0]['Name'].title()
-            user_code = user_row.iloc[0]['ECODE']
+if user_row is not None and not pin_match.empty:
+    st.session_state.logged_in = True
+    st.session_state.user_row = user_row
+    st.experimental_rerun()  # 🚀 this makes the app reload and remember the login
 
             # === CHAT INPUT ===
             prompt = st.text_area("Ask me anything (salary, leaves, law, etc.)")
