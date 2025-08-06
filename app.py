@@ -11,6 +11,10 @@ if os.path.exists("assets/logo.png"):
     st.image("assets/logo.png", width=150)
 
 st.title("👨‍💼 Ask HR - Capital Partners Group")
+
+# ✅ ADD THIS LINE TO SHOW THE IMAGE UNDER THE TITLE
+st.image("assets/middle_banner_image.png", use_column_width=True)
+
 prompt = st.text_input("Ask me anything (salary, leaves, law, etc.):")
 
 df = load_dashboard_data()
@@ -27,7 +31,6 @@ def is_excel_related(prompt, df):
     columns = [col.lower() for col in df.columns]
 
     return any(word in prompt for word in keywords + columns)
-
 
 if prompt:
     if is_excel_related(prompt, df):
