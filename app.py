@@ -69,7 +69,7 @@ if not st.session_state.logged_in:
                 if not pin_match.empty:
                     st.session_state.logged_in = True
                     st.session_state.user_row = user_row
-                    st.success("Access granted. How can I help you today?")
+                    st.experimental_rerun()
                 else:
                     st.error("Invalid PIN.")
             else:
@@ -122,7 +122,7 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
                     ]
                 )
                 response = openai_response.choices[0].message.content
-            except:
-                response = "Unable to connect to OpenAI. Please try again later."
+            except Exception as e:
+                response = f"Unable to connect to OpenAI. Error: {str(e)}"
 
         st.markdown(response)
