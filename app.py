@@ -106,18 +106,19 @@ if st.session_state.logged_in:
         elif any(word in prompt.lower() for word in ["joke", "funny"]):
             response = "Why did the HR manager bring a ladder to work? Because they were going for a raise! 🌟"
 
-        else:
-from openai import OpenAI
-client = OpenAI()
+               else:
+            from openai import OpenAI
+            client = OpenAI()
 
-chat_response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[
-        {"role": "system", "content": "You're a bilingual HR assistant for a Lebanese company. Be helpful and reply in Arabic if asked in Arabic, otherwise use English."},
-        {"role": "user", "content": prompt}
-    ]
-)
-response = chat_response.choices[0].message.content
+            chat_response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You're a bilingual HR assistant for a Lebanese company. Be helpful and reply in Arabic if asked in Arabic, otherwise use English."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            response = chat_response.choices[0].message.content
+
 
 
         st.markdown(response)
