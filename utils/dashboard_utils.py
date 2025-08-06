@@ -12,9 +12,20 @@ def show_dashboard(df, prompt):
         df['Age'].dropna().astype(int).hist(bins=10)
         st.pyplot(plt.gcf())
         plt.clf()
-    elif "nationalit" in prompt:
-        st.subheader("Employees by Nationality")
-        df['Nationality'].value_counts().plot(kind='bar')
+elif "nationalit" in prompt:
+    st.subheader("Employees by Nationality")
+
+    if 'Nationality' in df.columns:
+        df['Nationality'] = df['Nationality'].astype(str).str.strip().str.upper()
+        nationality_counts = df['Nationality'].value_counts()
+
+        st.write(nationality_counts)
+        nationality_counts.plot(kind='bar')
+        st.pyplot(plt.gcf())
+        plt.clf()
+    else:
+        st.error("❌ 'Nationality' column not found in the file.")
+
         st.pyplot(plt.gcf())
         plt.clf()
     elif "gender" in prompt:
