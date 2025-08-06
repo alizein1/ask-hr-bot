@@ -1,78 +1,63 @@
-
-import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import streamlit as st
+import seaborn as sns
+from io import BytesIO
+import base64
 
 def show_hr_dashboard():
-    df = pd.read_excel("Mass file - To be used for Dashboard.xlsx")
-    df.columns = df.columns.str.strip().str.upper()
+    st.markdown("## 📊 HR Insights Dashboard")
+    
+    try:
+        df = pd.read_excel("Mass file - To be used for Dashboard.xlsx", sheet_name=0)
+        df.columns = df.columns.str.strip()
 
-    st.title("📊 HR Insights Dashboard")
-    question = st.selectbox("Select a question to explore:", [
-        "Employee count by age group",
-        "Employee count by nationality",
-        "Employee count by job title",
-        "Employee count by company (entity)",
-        "Employee count by band",
-        "Employee count by grade",
-        "Employee count by contract type"
-    ])
+        st.markdown("### Select a question to explore:")
+        question = st.selectbox("Choose insight", [
+            "Employee count by age group",
+            "Employee count by grade",
+            "Employee count by band",
+            "Employee count by company",
+            "Employee count by nationality",
+            "Employee count by gender",
+            "Employee count by job title"
+        ])
 
-    if question == "Employee count by age group":
-        bins = [18, 25, 35, 45, 55, 65, 100]
-        labels = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+']
-        df['AGE GROUP'] = pd.cut(df['AGE'], bins=bins, labels=labels, right=False)
-        counts = df['AGE GROUP'].value_counts().sort_index()
-        counts.plot(kind='bar')
-        plt.title("Employee Count by Age Group")
-        plt.xlabel("Age Group")
-        plt.ylabel("Count")
-        st.pyplot(plt)
+        if question == "Employee count by age group":
+            bins = [18, 25, 35, 45, 55, 65]
+            labels = ['18–25', '26–35', '36–45', '46–55', '56–65']
+            df['Age Group'] = pd.cut(df['Age'], bins=bins, labels=labels, right=False)
+            plot_column(df, "Age Group", "Employee Count by Age Group")
 
-    elif question == "Employee count by nationality":
-        counts = df['NATIONALITY'].value_counts().head(20)
-        counts.plot(kind='bar')
-        plt.title("Top 20 Nationalities")
-        plt.xlabel("Nationality")
-        plt.ylabel("Count")
-        st.pyplot(plt)
+        elif question == "Employee count by grade":
+            plot_column(df, "Grade", "Employee Count by Grade")
 
-    elif question == "Employee count by job title":
-        counts = df['JOB TITLE'].value_counts().head(20)
-        counts.plot(kind='bar')
-        plt.title("Top 20 Job Titles")
-        plt.xlabel("Job Title")
-        plt.ylabel("Count")
-        st.pyplot(plt)
+        elif question == "Employee count by band":
+            plot_column(df, "Band", "Employee Count by Band")
 
-    elif question == "Employee count by company (entity)":
-        counts = df['ENTITY'].value_counts()
-        counts.plot(kind='bar')
-        plt.title("Employees by Company (Entity)")
-        plt.xlabel("Company")
-        plt.ylabel("Count")
-        st.pyplot(plt)
+        elif question == "Employee count by company":
+            plot_column(df, "Company", "Employee Count by Company")
 
-    elif question == "Employee count by band":
-        counts = df['BAND'].value_counts().sort_index()
-        counts.plot(kind='bar')
-        plt.title("Employee Count by Band")
-        plt.xlabel("Band")
-        plt.ylabel("Count")
-        st.pyplot(plt)
+        elif question == "Employee count by nationality":
+            plot_column(df, "Nationality", "Employee Count by Nationality")
 
-    elif question == "Employee count by grade":
-        counts = df['GRADE'].value_counts().sort_index()
-        counts.plot(kind='bar')
-        plt.title("Employee Count by Grade")
-        plt.xlabel("Grade")
-        plt.ylabel("Count")
-        st.pyplot(plt)
+        elif question == "Employee count by gender":
+            plot_column(df, "Gender", "Employee Count by Gender")
 
-    elif question == "Employee count by contract type":
-        counts = df['CONTRACT TYPE'].value_counts()
-        counts.plot(kind='bar')
-        plt.title("Employees by Contract Type")
-        plt.xlabel("Contract Type")
-        plt.ylabel("Count")
-        st.pyplot(plt)
+        elif question == "Employee count by job title":
+            plot_column(df, "Job Title", "Employee Count by Job Title")
+
+    except Exception as e:
+        st.error(f"Failed to load dashboard: {e}")
+
+def plot_column(df, column_name, title):
+    df = df[df[column_name].notna()]
+    counts = df[column_name].value_counts().sort_values(ascending=False)
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    sns.barplot(x=counts.index, y=counts.values, ax=ax)
+    ax.set_title(title)
+    ax.set_ylabel("Number of Employees")
+    ax.set_xlabel(column_name)
+    ax.tick_params(axis='x', rotation=45)
+    st.pyplot(fig)
