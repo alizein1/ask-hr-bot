@@ -13,7 +13,7 @@ if os.path.exists("assets/logo.png"):
 st.title("👨‍💼 Ask HR - Capital Partners Group")
 
 # ✅ ADD THIS LINE TO SHOW THE IMAGE UNDER THE TITLE
-st.image("assets/middle_banner_image.png", use_column_width=True)
+st.image("assets/middle_banner_image.png", width=400)
 
 prompt = st.text_input("Ask me anything (salary, leaves, law, etc.):")
 
