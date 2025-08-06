@@ -34,7 +34,10 @@ def set_background(image_path):
 set_background("CP Letter Head.jpg")
 
 # === HR TEAM HEADER ===
-st.image("assets/HRTEAM.jpg", width=300)
+try:
+    st.image("HRTEAM.jpg", width=300)
+except Exception:
+    st.warning("HR team image not found or unreadable.")
 st.markdown("# 👨‍💼 Ask HR")
 
 # === LOGIN FORM ===
