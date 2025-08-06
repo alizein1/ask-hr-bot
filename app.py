@@ -4,6 +4,7 @@ import pandas as pd
 import openai
 import base64
 from datetime import datetime
+from dashboard_module import show_hr_dashboard
 
 # === CONFIG ===
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -112,6 +113,9 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
 
         elif any(word in prompt.lower() for word in ["joke", "funny"]):
             response = "Why did the HR manager sit at their desk all day? Because they couldn't *stand* anymore meetings! 😄"
+
+        elif any(word in prompt.lower() for word in ["dashboard", "analytics", "visual", "chart", "stats"]):
+            show_hr_dashboard()
 
         else:
             try:
