@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
-from openai import OpenAI
+import openai
 import base64
 from datetime import datetime
 
 # === CONFIG ===
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # === LOAD DATA ===
 data = pd.read_excel("PROLOGISTICS.xlsx", sheet_name="FULL TIMERS")
@@ -37,7 +37,7 @@ set_background("CP Letter Head.jpg")
 # === HR TEAM HEADER ===
 try:
     st.image("HRTEAM.jpg", width=300)
-except:
+except Exception:
     st.warning("HR team image not found or unreadable.")
 st.markdown("# 👨‍💼 Ask HR")
 
@@ -92,14 +92,14 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
             st.markdown(f"### 💰 Salary Breakdown for {name}")
             st.table(breakdown.to_frame(name='Amount ($)').rename_axis('Component'))
             st.success(f"**Net Salary: ${salary}**")
-            return
+            st.stop()
 
         elif "leave" in prompt.lower() or "vacation" in prompt.lower():
             days = user_row.iloc[0]['ANNUAL LEAVES']
             response = f"{name}, you have **{days} days** of annual leave remaining."
 
         elif "social" in prompt.lower():
-            ssn = user_row.iloc[0].get("Social Security Number", "Not Available")
+            ssn = user_row.iloc[0].get("SOCIAL SECURITY NUMBER", "Not Available")
             response = f"Your Social Security Number is: **{ssn}**" if pd.notna(ssn) else "Your Social Security Number is not available. Please contact HR."
 
         elif "join" in prompt.lower():
@@ -115,19 +115,19 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
         elif any(word in prompt.lower() for word in ["quote", "motivation", "hr quote"]):
             st.image("1753186824732.jpg", caption="HR Quote 1", use_column_width=True)
             st.image("1753858092673.jpg", caption="HR Quote 2", use_column_width=True)
-            return
+            st.stop()
 
         else:
             try:
-                completion = client.chat.completions.create(
+                openai_response = openai.ChatCompletion.create(
                     model="gpt-4o",
                     messages=[
-                        {"role": "system", "content": "You're a professional Lebanese HR assistant. Reply in Arabic if asked in Arabic, otherwise use English."},
+                        {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
                         {"role": "user", "content": prompt}
                     ]
                 )
-                response = completion.choices[0].message.content
+                response = openai_response.choices[0].message.content
             except Exception as e:
-                response = f"Unable to connect to OpenAI. Error: {e}"
+                response = "Unable to connect to OpenAI. Please try again later."
 
         st.markdown(response)
