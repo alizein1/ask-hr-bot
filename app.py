@@ -115,7 +115,7 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
         else:
             try:
                 openai_response = openai.ChatCompletion.create(
-                    model="gpt-4",
+                    model="gpt-4o",
                     messages=[
                         {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
                         {"role": "user", "content": prompt}
