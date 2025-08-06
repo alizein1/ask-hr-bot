@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
-import openai
 import base64
 from datetime import datetime
+from openai import OpenAI
+from openai import OpenAIError
 
 # === CONFIG ===
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # === LOAD DATA ===
 data = pd.read_excel("PROLOGISTICS.xlsx", sheet_name="FULL TIMERS")
@@ -69,7 +70,7 @@ if not st.session_state.logged_in:
                 if not pin_match.empty:
                     st.session_state.logged_in = True
                     st.session_state.user_row = user_row
-                    st.experimental_rerun()
+                    st.success("Access granted. How can I help you today?")
                 else:
                     st.error("Invalid PIN.")
             else:
@@ -114,19 +115,15 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
 
         else:
             try:
-from openai import OpenAI
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-chat_completion = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[
-        {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
-        {"role": "user", "content": prompt}
-    ]
-)
-response = chat_completion.choices[0].message.content
-
-            except Exception as e:
-                response = f"Unable to connect to OpenAI. Error: {str(e)}"
+                ai_response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                response = ai_response.choices[0].message.content
+            except OpenAIError:
+                response = "Unable to connect to OpenAI. Please try again later."
 
         st.markdown(response)
