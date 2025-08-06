@@ -10,8 +10,7 @@ openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # === LOAD DATA ===
 data = pd.read_excel("PROLOGISTICS.xlsx", sheet_name="FULL TIMERS")
-data.columns = data.columns.str.strip().str.upper()  # Normalize column names
-data["NAME"] = data["NAME"].str.strip().str.lower()
+data["Name"] = data["Name"].str.strip().str.lower()
 data["ECODE"] = data["ECODE"].str.strip().str.upper()
 pin_map = pd.read_csv("Employee_PIN_List.csv")
 
@@ -62,8 +61,8 @@ if not st.session_state.logged_in:
             user_row = None
             if ecode_or_name.upper() in data.ECODE.values:
                 user_row = data[data.ECODE == ecode_or_name.upper()]
-            elif ecode_or_name in data.NAME.values:
-                user_row = data[data.NAME == ecode_or_name]
+            elif ecode_or_name in data.Name.values:
+                user_row = data[data.Name == ecode_or_name]
 
             if user_row is not None and not user_row.empty:
                 ecode = user_row.iloc[0]["ECODE"]
@@ -82,18 +81,18 @@ if not st.session_state.logged_in:
 # === MAIN BOT ===
 if st.session_state.logged_in and st.session_state.user_row is not None:
     user_row = st.session_state.user_row
-    name = user_row.iloc[0]['NAME'].title()
+    name = user_row.iloc[0]['Name'].title()
     prompt = st.text_area("Ask me anything (salary, leaves, law, etc.)")
 
     if st.button("Ask"):
         response = ""
 
         if "salary" in prompt.lower():
-            salary = user_row.iloc[0]['TOTAL']
-            breakdown = user_row.iloc[0][['BCSA', 'TRANSPORT', 'INCOMETAX', 'TOTAL DED']]
+            salary = user_row.iloc[0]['Total']
+            breakdown = user_row.iloc[0][['BCSA', 'TRANSPORT', 'INCOMETAX', 'Total Ded']]
             response = f"**Salary Breakdown for {name}:**\n\n"
             response += f"Basic: ${breakdown['BCSA']}\nTransport: ${breakdown['TRANSPORT']}\n"
-            response += f"Income Tax: ${breakdown['INCOMETAX']}\nDeductions: ${breakdown['TOTAL DED']}\n"
+            response += f"Income Tax: ${breakdown['INCOMETAX']}\nDeductions: ${breakdown['Total Ded']}\n"
             response += f"**Net Salary: ${salary}**"
 
         elif "leave" in prompt.lower() or "vacation" in prompt.lower():
@@ -101,11 +100,8 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
             response = f"{name}, you have **{days} days** of annual leave remaining."
 
         elif "social" in prompt.lower():
-            ssn = user_row.iloc[0].get("SOCIAL SECURITY NUMBER", "Not Available")
-            if pd.notna(ssn):
-                response = f"Your Social Security Number is: **{ssn}**"
-            else:
-                response = "Your Social Security Number is not available. Please contact HR."
+            ssn = user_row.iloc[0].get("Social Security Number", "Not Available")
+            response = f"Your Social Security Number is: **{ssn}**" if pd.notna(ssn) else "Your Social Security Number is not available. Please contact HR."
 
         elif "join" in prompt.lower():
             date = user_row.iloc[0]['JOINING DATE']
@@ -119,17 +115,15 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
 
         else:
             try:
-                from openai import OpenAI
-                client = OpenAI(api_key=openai.api_key)
-                chat_response = client.chat.completions.create(
+                openai_response = openai.chat.completions.create(
                     model="gpt-4o",
                     messages=[
                         {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
                         {"role": "user", "content": prompt}
                     ]
                 )
-                response = chat_response.choices[0].message.content
-            except Exception as e:
-                response = f"Unable to connect to OpenAI. Error: {str(e)}"
+                response = openai_response.choices[0].message.content
+            except:
+                response = "Unable to connect to OpenAI. Please try again later."
 
         st.markdown(response)
