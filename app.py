@@ -6,9 +6,6 @@ import base64
 from datetime import datetime
 from dashboard_module import show_hr_dashboard
 
-# In your prompt logic:
-elif any(word in prompt.lower() for word in ["dashboard", "age", "grade", "band", "gender", "company", "title", "nationality"]):
-    show_hr_dashboard()
 # === CONFIG ===
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
@@ -39,11 +36,9 @@ def set_background(image_path):
 
 set_background("CP Letter Head.jpg")
 
-# === HR TEAM HEADER ===
-try:
-    st.image("HRTEAM.jpg", width=300)
-except Exception:
-    st.warning("HR team image not found or unreadable.")
+# === HEADER IMAGE ===
+st.image("middle_banner_image.png", width=400, use_column_width="always")
+
 st.markdown("# 👨‍💼 Ask HR")
 
 # === SESSION INIT ===
@@ -104,7 +99,7 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
             response = f"{name}, you have **{days} days** of annual leave remaining."
 
         elif "social" in prompt.lower():
-            ssn = user_row.iloc[0].get("Social Security Number", "Not Available")
+            ssn = user_row.iloc[0].get("SOCIAL SECURITY NUMBER", "Not Available")
             response = f"Your Social Security Number is: **{ssn}**" if pd.notna(ssn) else "Your Social Security Number is not available. Please contact HR."
 
         elif "join" in prompt.lower():
@@ -117,19 +112,21 @@ if st.session_state.logged_in and st.session_state.user_row is not None:
         elif any(word in prompt.lower() for word in ["joke", "funny"]):
             response = "Why did the HR manager sit at their desk all day? Because they couldn't *stand* anymore meetings! 😄"
 
-        elif any(word in prompt.lower() for word in ["dashboard", "analytics", "visual", "chart", "stats"]):
+        elif any(word in prompt.lower() for word in ["dashboard", "age", "grade", "band", "gender", "company", "title", "nationality"]):
             show_hr_dashboard()
 
         else:
             try:
-                openai_response = openai.chat.completions.create(
+                from openai import OpenAI
+                client = OpenAI()
+                completion = client.chat.completions.create(
                     model="gpt-4o",
                     messages=[
                         {"role": "system", "content": "You're a professional Lebanese HR assistant. Respond in Arabic if question is Arabic, otherwise English."},
                         {"role": "user", "content": prompt}
                     ]
                 )
-                response = openai_response.choices[0].message.content
+                response = completion.choices[0].message.content
             except:
                 response = "Unable to connect to OpenAI. Please try again later."
 
