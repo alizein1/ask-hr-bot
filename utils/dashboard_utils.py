@@ -65,4 +65,5 @@ def show_employee_details(df, name):
     if results.empty:
         st.warning("No employee found matching that name.")
     else:
+        st.markdown("### 👤 Employee Details:")
         st.dataframe(results.reset_index(drop=True))
