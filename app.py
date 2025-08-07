@@ -8,40 +8,46 @@ from io import BytesIO
 
 st.set_page_config(page_title="Ask HR - Capital Partners Group", layout="wide")
 
+# Load logo
 if os.path.exists("assets/logo.png"):
     st.image("assets/logo.png", width=150)
 
-st.title("👨‍💼 Ask HR - Capital Partners Group")
+# Load header image
 if os.path.exists("assets/middle_banner_image.png"):
-    st.image("assets/middle_banner_image.png", width=600)
+    st.image("assets/middle_banner_image.png", use_column_width=True)
 
+st.title("👨‍💼 Ask HR - Capital Partners Group")
 prompt = st.text_input("Ask me anything (salary, leaves, law, etc.):")
+
+# Load Excel data
 df = load_dashboard_data()
 
+# Load policy file
 def load_policy():
     doc = Document("data/02 Capital Partners Group Code of Conducts and Business Ethics Policy (1).docx")
     return "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
 
 policy_text = load_policy()
 
+# Smarter logic to check Excel-related prompts
 def is_excel_related(prompt, df):
     prompt = prompt.lower()
-    keywords = ["dashboard", "distribution", "count", "how many", "list", "number", "show", "compare", "breakdown"]
+    keywords = ["dashboard", "distribution", "count", "how many", "list", "number", "show", "compare", "breakdown", "what are", "which", "total", "data", "in our company"]
     columns = [col.lower() for col in df.columns]
-    return any(word in prompt for word in keywords + columns)
+    return any(word in prompt for word in keywords) or any(col in prompt for col in columns)
 
-def is_employee_lookup(prompt, df):
-    return any(name.lower() in prompt.lower() for name in df['Full Name'].dropna())
-
+# Process prompt
 if prompt:
-    if is_employee_lookup(prompt, df):
-        st.markdown("👤 **Employee Record:**")
+    if any(name.lower() in prompt.lower() for name in df['Full Name'].dropna().unique()):
+        st.markdown("👤 **Employee Details:**")
         show_employee_details(df, prompt)
+
     elif is_excel_related(prompt, df):
         st.markdown("📊 **Answer from Excel file:**")
         st.write(ask_hr_excel_bot(df, prompt))
         show_dashboard(df, prompt)
 
+        # Download filtered data
         filtered_data = export_dashboard_data(df, prompt)
         if not filtered_data.empty:
             towrite = BytesIO()
@@ -58,6 +64,7 @@ if prompt:
         summary_prompt = f"Summarize the Capital Partners Group policy to answer this question:\n\n{prompt}\n\nPolicy:\n{policy_text}"
         st.markdown("📋 **Answer from Policy:**")
         st.info(ask_openai(summary_prompt))
+
     else:
         st.markdown("🤖 **General answer from HR bot:**")
         st.info(ask_openai(prompt))
