@@ -1,3 +1,17 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import streamlit as st
+
+def load_dashboard_data():
+    return pd.read_excel("data/Mass file - To be used for Dashboard.xlsx")
+
+def show_employee_details(df, prompt):
+    filtered = df[df['Full Name'].str.lower().str.contains(prompt.lower())]
+    if not filtered.empty:
+        st.dataframe(filtered)
+    else:
+        st.warning("No matching employee found.")
+
 def show_dashboard(df, prompt):
     prompt = prompt.lower()
     matched_column = None
@@ -22,7 +36,6 @@ def show_dashboard(df, prompt):
         st.bar_chart(data.T)
     else:
         st.warning("No matching dashboard available for this prompt.")
-
 
 def export_dashboard_data(df, prompt):
     prompt = prompt.lower()
