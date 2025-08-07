@@ -17,7 +17,7 @@ if os.path.exists("assets/logo.png"):
     st.image("assets/logo.png", width=150)
 
 if os.path.exists("assets/middle_banner_image.png"):
-    st.image("assets/middle_banner_image.png", use_container_width=True)
+    st.image("assets/middle_banner_image.png", width=800)
 
 st.title("👨‍💼 Ask HR - Capital Partners Group")
 prompt = st.text_input("Ask me anything (salary, leaves, law, etc.):")
