@@ -1,83 +1,63 @@
 import streamlit as st
 import pandas as pd
+from utils.openai_utils import ask_openai, ask_hr_excel_bot
+from utils.dashboard_utils import load_dashboard_data, show_dashboard, show_employee_details, export_dashboard_data
+from docx import Document
 import os
-from PIL import UnidentifiedImageError
-
-from utils.dashboard_utils import (
-    load_dashboard_data,
-    dynamic_data_response,
-    generate_excel_download_link,
-    generate_pdf_download_link
-)
-
-from utils.policy_utils import load_policy_sections, answer_policy_question
+from io import BytesIO
 
 st.set_page_config(page_title="Ask HR - Capital Partners Group", layout="wide")
 
-banner_path = "assets/middle_banner_image.png"
-if os.path.exists(banner_path):
-    try:
-        st.image(banner_path, use_container_width=True)
-    except UnidentifiedImageError:
-        st.warning("⚠️ Banner image is unreadable. Please upload a valid PNG image.")
-else:
-    st.info("ℹ️ No banner image found in the assets folder.")
+if os.path.exists("assets/logo.png"):
+    st.image("assets/logo.png", width=150)
 
 st.title("👨‍💼 Ask HR - Capital Partners Group")
-st.markdown("**Ask me anything (salary, leaves, law, employees, dashboards, or policy):**")
+if os.path.exists("assets/middle_banner_image.png"):
+    st.image("assets/middle_banner_image.png", width=600)
 
+prompt = st.text_input("Ask me anything (salary, leaves, law, etc.):")
 df = load_dashboard_data()
-if df is None or df.empty:
-    st.error("❌ Could not load employee data. Please check the Excel file path and content.")
-    st.stop()
 
-policy_sections = load_policy_sections("data/02 Capital Partners Group Code of Conducts and Business Ethics Policy (1).docx")
+def load_policy():
+    doc = Document("data/02 Capital Partners Group Code of Conducts and Business Ethics Policy (1).docx")
+    return "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
 
-user_input = st.text_input("🗨️ Type your question here:")
+policy_text = load_policy()
 
-if user_input:
-    lower_input = user_input.lower()
+def is_excel_related(prompt, df):
+    prompt = prompt.lower()
+    keywords = ["dashboard", "distribution", "count", "how many", "list", "number", "show", "compare", "breakdown"]
+    columns = [col.lower() for col in df.columns]
+    return any(word in prompt for word in keywords + columns)
 
-    excel_columns = [
-        "full name",
-        "age",
-        "gender",
-        "nationality",
-        "entity",
-        "job title",
-        "band",
-        "grade",
-        "contract type",
-        "department code",
-        "joining date",
-        "termination date",
-        "country",
-        "office",
-        "birth date"
-    ]
+def is_employee_lookup(prompt, df):
+    return any(name.lower() in prompt.lower() for name in df['Full Name'].dropna())
 
-    excel_keywords = excel_columns + ["dashboard", "chart", "show", "list", "count", "how many", "distribution"]
+if prompt:
+    if is_employee_lookup(prompt, df):
+        st.markdown("👤 **Employee Record:**")
+        show_employee_details(df, prompt)
+    elif is_excel_related(prompt, df):
+        st.markdown("📊 **Answer from Excel file:**")
+        st.write(ask_hr_excel_bot(df, prompt))
+        show_dashboard(df, prompt)
 
-    if any(keyword in lower_input for keyword in excel_keywords):
-        excel_response = dynamic_data_response(df, user_input)
-        if excel_response["found"]:
-            if excel_response["chart"]:
-                st.plotly_chart(excel_response["chart"], use_container_width=True)
-            if excel_response["table"] is not None:
-                st.dataframe(excel_response["table"])
-                st.markdown(generate_excel_download_link(excel_response["table"]), unsafe_allow_html=True)
-                st.markdown(generate_pdf_download_link(excel_response["table"]), unsafe_allow_html=True)
-            if excel_response["explanation"]:
-                st.markdown("🧠 **Insights:**")
-                st.info(excel_response["explanation"])
-            st.stop()
+        filtered_data = export_dashboard_data(df, prompt)
+        if not filtered_data.empty:
+            towrite = BytesIO()
+            filtered_data.to_excel(towrite, index=False, sheet_name="Dashboard")
+            towrite.seek(0)
+            st.download_button(
+                label="📥 Download Dashboard Data (Excel)",
+                data=towrite,
+                file_name="dashboard_output.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
-    response = answer_policy_question(user_input, policy_sections)
-    if response and "no relevant content found" not in response.lower():
-        st.success("📘 Policy Answer:")
-        st.write(response)
+    elif any(word in prompt.lower() for word in ["policy", "conduct", "ethics", "harassment", "conflict", "bribery", "discipline"]):
+        summary_prompt = f"Summarize the Capital Partners Group policy to answer this question:\n\n{prompt}\n\nPolicy:\n{policy_text}"
+        st.markdown("📋 **Answer from Policy:**")
+        st.info(ask_openai(summary_prompt))
     else:
-        st.info("🤖 Sorry, I couldn't find info in Excel data or policy. Please try rephrasing your question.")
-
-st.markdown("---")
-st.caption("Capital Partners Group © 2025 — HR Virtual Assistant")
+        st.markdown("🤖 **General answer from HR bot:**")
+        st.info(ask_openai(prompt))
