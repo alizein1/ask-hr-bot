@@ -119,14 +119,13 @@ def main():
     if not st.session_state.authenticated:
         ecode = st.text_input("Enter your ECODE")
         pin = st.text_input("Enter your 3-digit PIN", type="password")
-if st.button("Login"):
-    if authenticate(ecode, pin, pin_df):
-        st.session_state.authenticated = True
-        st.session_state.ecode = ecode
-        st.success("Logged in successfully ✅")
-        st.rerun()  # 👈 this forces the app to reload with session state
-    else:
-        st.error("Invalid credentials. Please try again.")
+        if st.button("Login"):
+            if authenticate(ecode, pin, pin_df):
+                st.session_state.authenticated = True
+                st.session_state.ecode = ecode
+                st.rerun()
+            else:
+                st.error("Invalid credentials. Please try again.")
     else:
         ecode = st.session_state.ecode
         emp_data = df[df["ECODE"] == ecode]
