@@ -1,22 +1,23 @@
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
+import base64
 from io import BytesIO
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 
-# Optional: If you're using OpenAI for explanations
+# GPT fallback if not available
 try:
     from openai_utils import ask_openai
 except ImportError:
     def ask_openai(prompt):
-        return "🧠 GPT explanation would appear here (OpenAI not connected)."
+        return "[OpenAI not available] GPT-based explanation would appear here."
 
 def load_dashboard_data():
     try:
         return pd.read_excel("data/Mass file - To be used for Dashboard.xlsx", engine="openpyxl")
     except Exception as e:
-        st.error(f"Failed to load Excel file: {e}")
+        st.error(f"Error loading Excel file: {e}")
         return pd.DataFrame()
 
 def show_employee_details(df, prompt):
@@ -61,19 +62,14 @@ def export_dashboard_data(df, prompt):
 
     if "nationalit" in prompt:
         return df[['Entity', 'Nationality']]
-
     elif "gender" in prompt:
         return df[['Entity', 'Gender']]
-
     elif "band" in prompt:
         return df[['Entity', 'Band']]
-
     elif "grade" in prompt:
         return df[['Entity', 'Grade']]
-
     elif "job title" in prompt:
         return df[['Entity', 'Job Title']]
-
     elif "age" in prompt:
         return df[['Entity', 'Age']]
 
@@ -86,22 +82,33 @@ def export_pdf(df):
     elements = [Paragraph("Dashboard Export", styles["Title"])]
 
     for col in df.columns:
-        text = f"<b>{col}</b>: {', '.join(map(str, df[col].unique()))}"
-        elements.append(Paragraph(text, styles["Normal"]))
+        values = ', '.join(map(str, df[col].unique()))
+        elements.append(Paragraph(f"<b>{col}</b>: {values}", styles["Normal"]))
 
     doc.build(elements)
     buffer.seek(0)
     return buffer
 
+def generate_excel_download_link(df):
+    buffer = BytesIO()
+    df.to_excel(buffer, index=False, engine='openpyxl')
+    b64 = base64.b64encode(buffer.getvalue()).decode()
+    return f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="export.xlsx">📥 Download Excel file</a>'
+
+def generate_pdf_download_link(df):
+    pdf_buffer = export_pdf(df)
+    b64 = base64.b64encode(pdf_buffer.read()).decode()
+    return f'<a href="data:application/pdf;base64,{b64}" download="export.pdf">📄 Download PDF file</a>'
+
 def explain_dashboard(df, prompt):
     sample = df.head(10).to_markdown()
-    explanation_prompt = f\"\"\"You are an HR analyst. Here is sample data:
+    explanation_prompt = f"""You are an HR analyst. Here is sample data:
 
 {sample}
 
 The user asked for: \"{prompt}\"
 
-Please explain the insights from this data in a concise way.\"\"\"
+Please explain the insights from this data in a concise way."""
     explanation = ask_openai(explanation_prompt)
     st.markdown("🧠 **Chart Insights:**")
     st.info(explanation)
