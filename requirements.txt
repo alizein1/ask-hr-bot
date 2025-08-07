@@ -1,8 +1,8 @@
+
 streamlit
 pandas
 plotly
-openpyxl
-reportlab
-matplotlib
 openai
+matplotlib
+reportlab
 python-docx
