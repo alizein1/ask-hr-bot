@@ -1,67 +1,81 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-from utils.dashboard_utils import load_dashboard_data, generate_dashboard_chart, generate_excel_download_link, generate_pdf_download_link
+import os
+from utils.openai_utils import ask_openai, ask_hr_excel_bot
+from utils.dashboard_utils import (
+    load_dashboard_data,
+    show_dashboard,
+    show_employee_details,
+    export_dashboard_data,
+    export_pdf,
+    explain_dashboard
+)
+from docx import Document
+from io import BytesIO
 
-# Set page config
 st.set_page_config(page_title="Ask HR - Capital Partners Group", layout="wide")
 
-# UI
-st.title("\U0001F468‍\U0001F4BC Ask HR - Capital Partners Group")
-st.write("Ask me anything about salary, leaves, nationalities, job titles, age groups, etc.")
+if os.path.exists("assets/logo.png"):
+    st.image("assets/logo.png", width=150)
 
-# Load data
+st.title("👨‍💼 Ask HR - Capital Partners Group")
+
+# Show banner image
+if os.path.exists("assets/middle_banner_image.png"):
+    st.image("assets/middle_banner_image.png", use_container_width=True)
+
+prompt = st.text_input("Ask me anything (salary, leaves, law, etc.):")
+
 df = load_dashboard_data()
 
-if df is None or df.empty:
-    st.error("❌ Failed to load employee data. Please check the Excel file path or format.")
-    st.stop()
-else:
-    st.success(f"✅ Employee data loaded successfully. Total records: {len(df)}")
+def load_policy():
+    doc = Document("data/02 Capital Partners Group Code of Conducts and Business Ethics Policy (1).docx")
+    return "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
 
-# Input from user
-user_input = st.text_input("\U0001F4AC Your question:")
+policy_text = load_policy()
 
-if user_input:
-    user_input_lower = user_input.lower()
+def is_excel_related(prompt, df):
+    prompt = prompt.lower()
+    keywords = ["dashboard", "distribution", "count", "how many", "list", "number", "show", "compare", "breakdown"]
+    columns = [col.lower() for col in df.columns]
+    return any(word in prompt for word in keywords + columns)
 
-    # Nationalities
-    if "nationalit" in user_input_lower:
-        nationalities = df['Nationality'].dropna().unique().tolist()
-        st.write(f"The nationalities in our company are: {', '.join(sorted(nationalities))}.")
+if prompt:
+    if is_excel_related(prompt, df):
+        st.markdown("📊 **Answer from Excel file:**")
+        st.write(ask_hr_excel_bot(df, prompt))
+        show_dashboard(df, prompt)
+        explain_dashboard(df, prompt)
 
-    # Age groups
-    elif "age" in user_input_lower:
-        df['Age Group'] = pd.cut(df['Age'], bins=[0, 25, 35, 45, 55, 100], labels=["<25", "25-34", "35-44", "45-54", "55+"])
-        fig = px.histogram(df, x='Age Group', color='Entity', barmode='group', title="Age Group Distribution by Entity")
-        st.plotly_chart(fig, use_container_width=True)
+        filtered_data = export_dashboard_data(df, prompt)
+        if not filtered_data.empty:
+            towrite = BytesIO()
+            filtered_data.to_excel(towrite, index=False, sheet_name="Dashboard")
+            towrite.seek(0)
+            st.download_button(
+                label="📥 Download Dashboard Data (Excel)",
+                data=towrite,
+                file_name="dashboard_output.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
-    # Job titles
-    elif "job title" in user_input_lower or "position" in user_input_lower:
-        job_counts = df['Job Title'].value_counts().reset_index()
-        job_counts.columns = ['Job Title', 'Count']
-        fig = px.bar(job_counts, x='Job Title', y='Count', title="Job Title Distribution")
-        st.plotly_chart(fig, use_container_width=True)
+            pdf_file = export_pdf(filtered_data)
+            st.download_button(
+                label="📄 Download Dashboard (PDF)",
+                data=pdf_file,
+                file_name="dashboard_output.pdf",
+                mime="application/pdf"
+            )
 
-    # Entities, Bands, Grades
-    elif any(term in user_input_lower for term in ["entity", "band", "grade"]):
-        col = "Entity" if "entity" in user_input_lower else "Band" if "band" in user_input_lower else "Grade"
-        count_df = df[col].value_counts().reset_index()
-        count_df.columns = [col, 'Count']
-        fig = px.pie(count_df, names=col, values='Count', title=f"{col} Distribution")
-        st.plotly_chart(fig, use_container_width=True)
+    elif any(name.lower() in prompt.lower() for name in df['Full Name'].dropna().unique()):
+        st.markdown("👤 **Employee Information:**")
+        show_employee_details(df, prompt)
 
-    # Employee-specific
-    elif any(name in user_input_lower for name in df['Full Name'].str.lower()):
-        match = df[df['Full Name'].str.lower().apply(lambda x: x in user_input_lower)]
-        st.write("Employee details:")
-        st.dataframe(match)
+    elif any(word in prompt.lower() for word in ["policy", "conduct", "ethics", "harassment", "conflict", "bribery", "discipline"]):
+        summary_prompt = f"Summarize the Capital Partners Group policy to answer this question:\n\n{prompt}\n\nPolicy:\n{policy_text}"
+        st.markdown("📋 **Answer from Policy:**")
+        st.info(ask_openai(summary_prompt))
 
-    # Unrecognized input
     else:
-        st.info("I'm still learning. Try asking about nationalities, age groups, job titles, entities, grades, bands, or employee names.")
-
-    # Optional downloads
-    st.markdown("### \U0001F4BE Download Data")
-    st.markdown(generate_excel_download_link(df), unsafe_allow_html=True)
-    st.markdown(generate_pdf_download_link(df), unsafe_allow_html=True)
+        st.markdown("🤖 **General answer from HR bot:**")
+        st.info(ask_openai(prompt))
