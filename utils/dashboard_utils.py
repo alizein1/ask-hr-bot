@@ -16,7 +16,8 @@ def show_dashboard(df, prompt):
     prompt = prompt.lower()
     matched_column = None
     for col in df.columns:
-        if col.lower() in prompt:
+        col_lower = col.lower()
+        if col_lower in prompt or col_lower.rstrip("s") in prompt or col_lower + "s" in prompt:
             matched_column = col
             break
 
@@ -39,7 +40,8 @@ def show_dashboard(df, prompt):
 def export_dashboard_data(df, prompt):
     prompt = prompt.lower()
     for col in df.columns:
-        if col.lower() in prompt:
+        col_lower = col.lower()
+        if col_lower in prompt or col_lower.rstrip("s") in prompt or col_lower + "s" in prompt:
             return df[['Entity', col]]
     if "age" in prompt:
         return df[['Entity', 'Age']]
