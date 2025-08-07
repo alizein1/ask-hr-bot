@@ -2,12 +2,12 @@ from docx import Document
 from utils.openai_utils import ask_openai
 
 def load_policy_sections(docx_path):
-    document = Document(docx_path)
+    doc = Document(docx_path)
     sections = []
     current_heading = ""
     current_content = []
 
-    for para in document.paragraphs:
+    for para in doc.paragraphs:
         if para.style.name.startswith("Heading"):
             if current_heading:
                 sections.append({
@@ -33,14 +33,14 @@ def answer_policy_question(user_question, policy_sections):
         context += f"\n\n## {section['heading']}\n{section['content']}"
 
     prompt = f"""
-You are a professional HR policy assistant. Below is the full Capital Partners Group Code of Conduct and Business Ethics Policy:
+You are a professional HR policy assistant. Below is the Capital Partners Group Code of Conduct and Business Ethics Policy:
 
 {context}
 
 Based on this document, provide a clear, concise, and structured answer to this question:
 
-"{user_question}"
+\"{user_question}\"
 
-If the policy does not contain relevant information, say politely that no relevant policy content was found.
+If the policy does not contain relevant information, respond politely that no relevant policy content was found.
 """
     return ask_openai(prompt)
