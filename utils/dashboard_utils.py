@@ -6,17 +6,8 @@ def load_dashboard_data():
     return pd.read_excel("data/Mass file - To be used for Dashboard.xlsx")
 
 def dynamic_data_response(df: pd.DataFrame, question: str) -> dict:
-    """
-    Analyze user question, detect columns and filters,
-    return a dict with:
-    - found: bool
-    - chart: plotly figure or None
-    - table: pd.DataFrame or None
-    - explanation: str or None
-    """
     import json
 
-    # Step 1: Use GPT to parse user question for columns and filters
     parse_prompt = f"""
 You are a data analyst. The available columns are: {list(df.columns)}.
 A user asked: \"{question}\".
@@ -48,19 +39,16 @@ Example:
     if not parsed.get("columns") and not parsed.get("filters"):
         return {"found": False, "chart": None, "table": None, "explanation": None}
 
-    # Step 2: Filter DataFrame by filters
     df_filtered = df.copy()
     for col, val in parsed.get("filters", {}).items():
         if col in df_filtered.columns:
             df_filtered = df_filtered[df_filtered[col].astype(str).str.contains(val, case=False, na=False)]
 
-    # Step 3: Aggregate data
     group_cols = parsed.get("columns", [])
     aggregate = parsed.get("aggregate", "count")
     response_type = parsed.get("response_type", "chart")
 
     if not group_cols:
-        # Show filtered table only
         explanation = ask_openai(f"Analyze this data sample:\n{df_filtered.head(10).to_markdown()}\nQuestion: {question}\nProvide a concise insight summary.")
         return {"found": True, "chart": None, "table": df_filtered, "explanation": explanation}
 
@@ -76,7 +64,6 @@ Example:
     else:
         agg_df = df_filtered.groupby(group_cols).size().reset_index(name="Count")
 
-    # Step 4: Build chart if requested
     fig = None
     if response_type == "chart":
         if len(group_cols) == 1:
@@ -87,7 +74,6 @@ Example:
         else:
             fig = px.bar(agg_df, x=group_cols[0], y=agg_df.columns[-1], title=f"Dashboard: {group_cols[0]} vs {agg_df.columns[-1]}")
 
-    # Step 5: GPT explanation of aggregated data
     explanation_prompt = f"Here is aggregated data:\n{agg_df.head(10).to_markdown()}\nQuestion: {question}\nProvide a concise insightful summary."
     explanation = ask_openai(explanation_prompt)
 
