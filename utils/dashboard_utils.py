@@ -4,7 +4,6 @@ import streamlit as st
 from io import BytesIO
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
-from openai_utils import ask_openai
 
 def load_dashboard_data():
     return pd.read_excel("data/Mass file - To be used for Dashboard.xlsx")
