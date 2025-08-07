@@ -1,4 +1,3 @@
-# utils/dashboard_utils.py
 import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
@@ -42,3 +41,27 @@ def show_dashboard(df, prompt):
         df['Age Group'] = pd.cut(df['Age'], bins=bins, labels=labels)
         data = df.groupby(['Entity', 'Age Group']).size().unstack(fill_value=0)
         st.bar_chart(data.T)
+
+def export_dashboard_data(df, prompt):
+    prompt = prompt.lower()
+    result_df = pd.DataFrame()
+
+    if "nationalit" in prompt:
+        result_df = df[['Entity', 'Nationality']]
+
+    elif "gender" in prompt:
+        result_df = df[['Entity', 'Gender']]
+
+    elif "band" in prompt:
+        result_df = df[['Entity', 'Band']]
+
+    elif "grade" in prompt:
+        result_df = df[['Entity', 'Grade']]
+
+    elif "job title" in prompt:
+        result_df = df[['Entity', 'Job Title']]
+
+    elif "age" in prompt:
+        result_df = df[['Entity', 'Age']]
+
+    return result_df
