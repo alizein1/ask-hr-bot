@@ -1,70 +1,69 @@
+
 import streamlit as st
 import pandas as pd
-from utils.openai_utils import ask_openai, ask_hr_excel_bot
-from utils.dashboard_utils import load_dashboard_data, show_dashboard, show_employee_details, export_dashboard_data
-from docx import Document
+import plotly.express as px
 import os
-from io import BytesIO
+from PIL import UnidentifiedImageError
+
+from utils.dashboard_utils import (
+    load_dashboard_data,
+    generate_excel_download_link,
+    generate_pdf_download_link,
+    show_dashboard,
+    show_employee_details,
+    export_dashboard_data,
+    explain_dashboard
+)
+
+from utils.policy_utils import load_policy_sections, answer_policy_question
 
 st.set_page_config(page_title="Ask HR - Capital Partners Group", layout="wide")
 
-# Load logo
-if os.path.exists("assets/logo.png"):
-    st.image("assets/logo.png", width=150)
-
-# Load header image
-if os.path.exists("assets/middle_banner_image.png"):
-    st.image("assets/middle_banner_image.png", use_column_width=True)
+banner_path = "assets/middle_banner_image.png"
+if os.path.exists(banner_path):
+    try:
+        st.image(banner_path, use_container_width=True)
+    except UnidentifiedImageError:
+        st.warning("⚠️ Banner image is unreadable. Please upload a valid PNG image.")
+else:
+    st.info("ℹ️ No banner image found in the assets folder.")
 
 st.title("👨‍💼 Ask HR - Capital Partners Group")
-prompt = st.text_input("Ask me anything (salary, leaves, law, etc.):")
+st.markdown("**Ask me anything (salary, leaves, law, employees, dashboards, or policy):**")
 
-# Load Excel data
 df = load_dashboard_data()
+if df is None or df.empty:
+    st.error("❌ Could not load employee data. Please check the Excel file path and content.")
+    st.stop()
 
-# Load policy file
-def load_policy():
-    doc = Document("data/02 Capital Partners Group Code of Conducts and Business Ethics Policy (1).docx")
-    return "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
+@st.cache_data
+def get_policy_sections():
+    return load_policy_sections("data/02 Capital Partners Group Code of Conducts and Business Ethics Policy (1).docx")
 
-policy_text = load_policy()
+policy_sections = get_policy_sections()
 
-# Smarter logic to check Excel-related prompts
-def is_excel_related(prompt, df):
-    prompt = prompt.lower()
-    keywords = ["dashboard", "distribution", "count", "how many", "list", "number", "show", "compare", "breakdown", "what are", "which", "total", "data", "in our company"]
-    columns = [col.lower() for col in df.columns]
-    return any(word in prompt for word in keywords) or any(col in prompt for col in columns)
+user_input = st.text_input("🗨️ Type your question here:")
 
-# Process prompt
-if prompt:
-    if any(name.lower() in prompt.lower() for name in df['Full Name'].dropna().unique()):
-        st.markdown("👤 **Employee Details:**")
-        show_employee_details(df, prompt)
-
-    elif is_excel_related(prompt, df):
-        st.markdown("📊 **Answer from Excel file:**")
-        st.write(ask_hr_excel_bot(df, prompt))
-        show_dashboard(df, prompt)
-
-        # Download filtered data
-        filtered_data = export_dashboard_data(df, prompt)
-        if not filtered_data.empty:
-            towrite = BytesIO()
-            filtered_data.to_excel(towrite, index=False, sheet_name="Dashboard")
-            towrite.seek(0)
-            st.download_button(
-                label="📥 Download Dashboard Data (Excel)",
-                data=towrite,
-                file_name="dashboard_output.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-    elif any(word in prompt.lower() for word in ["policy", "conduct", "ethics", "harassment", "conflict", "bribery", "discipline"]):
-        summary_prompt = f"Summarize the Capital Partners Group policy to answer this question:\n\n{prompt}\n\nPolicy:\n{policy_text}"
-        st.markdown("📋 **Answer from Policy:**")
-        st.info(ask_openai(summary_prompt))
-
+if user_input:
+    lower_input = user_input.lower()
+    response = answer_policy_question(user_input, policy_sections)
+    if response and "no relevant content found" not in response.lower():
+        st.success("📘 Policy Answer:")
+        st.write(response)
+    elif any(term in lower_input for term in ["nationalit", "gender", "band", "grade", "job title", "age"]):
+        show_dashboard(df, lower_input)
+        export_df = export_dashboard_data(df, lower_input)
+        if not export_df.empty:
+            st.markdown(generate_excel_download_link(export_df), unsafe_allow_html=True)
+            st.markdown(generate_pdf_download_link(export_df), unsafe_allow_html=True)
+            explain_dashboard(export_df, lower_input)
+    elif any(name in lower_input for name in df["Full Name"].dropna().str.lower()):
+        show_employee_details(df, lower_input)
+        filtered = df[df["Full Name"].str.lower().str.contains(lower_input)]
+        st.markdown(generate_excel_download_link(filtered), unsafe_allow_html=True)
+        st.markdown(generate_pdf_download_link(filtered), unsafe_allow_html=True)
     else:
-        st.markdown("🤖 **General answer from HR bot:**")
-        st.info(ask_openai(prompt))
+        st.info("🤖 I can show dashboards (age, gender, job title, grades, bands, nationalities), employee details, or explain policies. Try asking about those!")
+
+st.markdown("---")
+st.caption("Capital Partners Group © 2025 — HR Virtual Assistant")
