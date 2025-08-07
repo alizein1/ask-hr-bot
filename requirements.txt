@@ -4,5 +4,4 @@ openai
 python-docx
 matplotlib
 tabulate
-openpyxl
 reportlab
