@@ -8,14 +8,32 @@ def load_dashboard_data():
 def dynamic_data_response(df: pd.DataFrame, question: str) -> dict:
     import json
 
+    excel_columns = [
+        "Full Name",
+        "Age",
+        "Gender",
+        "Nationality",
+        "Entity",
+        "Job Title",
+        "Band",
+        "Grade",
+        "Contract Type",
+        "Department Code",
+        "Joining Date",
+        "Termination Date",
+        "Country",
+        "Office",
+        "Birth Date"
+    ]
+
     parse_prompt = f"""
-You are a data analyst. The available columns are: {list(df.columns)}.
+You are a data analyst. The available columns are: {excel_columns}.
 A user asked: \"{question}\".
 
 Return a JSON with keys:
 - columns: list of columns to group or filter by,
 - filters: dictionary of filters as {{"ColumnName": "value"}},
-- aggregate: what to count or summarize (e.g. count, average of Salary),
+- aggregate: what to count or summarize (e.g. count, average of Age),
 - response_type: either 'chart' or 'table'.
 
 Return only valid columns from the data.
