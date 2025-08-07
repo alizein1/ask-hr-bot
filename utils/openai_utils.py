@@ -1,8 +1,10 @@
+from openai import OpenAI
+import os
 
-import openai
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def ask_openai(prompt):
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "You are an expert HR assistant."},
