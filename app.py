@@ -94,4 +94,3 @@ if user_input:
 # --- Optional: Footer ---
 st.markdown("---")
 st.caption("Capital Partners Group © 2025 — HR Virtual Assistant")
-
