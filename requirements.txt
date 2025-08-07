@@ -1,9 +1,8 @@
-openpyxl
 streamlit
 pandas
 plotly
-openai
 matplotlib
 reportlab
 python-docx
+openpyxl
 openai>=1.2.3
