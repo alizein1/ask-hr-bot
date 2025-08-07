@@ -6,3 +6,4 @@ openai
 matplotlib
 reportlab
 python-docx
+openai>=1.2.3
