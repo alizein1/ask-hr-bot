@@ -1,8 +1,8 @@
 import openai
-import pandas as pd
+
+client = openai.OpenAI()
 
 def ask_openai(prompt):
-    client = openai.OpenAI()
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -22,7 +22,6 @@ def ask_hr_excel_bot(df, user_prompt):
 Based on this data, answer this user query:
 {user_prompt}
 """
-    client = openai.OpenAI()
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
