@@ -1,3 +1,4 @@
+# app.py
 import streamlit as st
 import pandas as pd
 from utils.openai_utils import ask_openai, ask_hr_excel_bot
@@ -10,7 +11,7 @@ st.set_page_config(page_title="Ask HR - Capital Partners Group", layout="wide")
 if os.path.exists("assets/logo.png"):
     st.image("assets/logo.png", width=150)
 
-st.title("\U0001F468\u200D\U0001F4BC Ask HR - Capital Partners Group")
+st.title("👨‍💼 Ask HR - Capital Partners Group")
 st.image("assets/middle_banner_image.png", width=600)
 
 prompt = st.text_input("Ask me anything (salary, leaves, law, etc.):")
@@ -37,13 +38,13 @@ if prompt:
         st.markdown("👤 **Employee Record:**")
         show_employee_details(df, prompt)
     elif is_excel_related(prompt, df):
-        st.markdown("\U0001F4CA **Answer from Excel file:**")
+        st.markdown("📊 **Answer from Excel file:**")
         st.write(ask_hr_excel_bot(df, prompt))
         show_dashboard(df, prompt)
     elif any(word in prompt.lower() for word in ["policy", "conduct", "ethics", "harassment", "conflict", "bribery", "discipline"]):
         summary_prompt = f"Summarize the Capital Partners Group policy to answer this question:\n\n{prompt}\n\nPolicy:\n{policy_text}"
-        st.markdown("\U0001F4CB **Answer from Policy:**")
+        st.markdown("📋 **Answer from Policy:**")
         st.info(ask_openai(summary_prompt))
     else:
-        st.markdown("\U0001F916 **General answer from HR bot:**")
+        st.markdown("🤖 **General answer from HR bot:**")
         st.info(ask_openai(prompt))
