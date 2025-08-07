@@ -1,12 +1,23 @@
 import pandas as pd
-import matplotlib.pyplot as plt
 import streamlit as st
+import matplotlib.pyplot as plt
 from io import BytesIO
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 
+# Optional: If you're using OpenAI for explanations
+try:
+    from openai_utils import ask_openai
+except ImportError:
+    def ask_openai(prompt):
+        return "🧠 GPT explanation would appear here (OpenAI not connected)."
+
 def load_dashboard_data():
-    return pd.read_excel("data/Mass file - To be used for Dashboard.xlsx")
+    try:
+        return pd.read_excel("data/Mass file - To be used for Dashboard.xlsx", engine="openpyxl")
+    except Exception as e:
+        st.error(f"Failed to load Excel file: {e}")
+        return pd.DataFrame()
 
 def show_employee_details(df, prompt):
     filtered = df[df['Full Name'].str.lower().str.contains(prompt.lower())]
@@ -47,27 +58,26 @@ def show_dashboard(df, prompt):
 
 def export_dashboard_data(df, prompt):
     prompt = prompt.lower()
-    result_df = pd.DataFrame()
 
     if "nationalit" in prompt:
-        result_df = df[['Entity', 'Nationality']]
+        return df[['Entity', 'Nationality']]
 
     elif "gender" in prompt:
-        result_df = df[['Entity', 'Gender']]
+        return df[['Entity', 'Gender']]
 
     elif "band" in prompt:
-        result_df = df[['Entity', 'Band']]
+        return df[['Entity', 'Band']]
 
     elif "grade" in prompt:
-        result_df = df[['Entity', 'Grade']]
+        return df[['Entity', 'Grade']]
 
     elif "job title" in prompt:
-        result_df = df[['Entity', 'Job Title']]
+        return df[['Entity', 'Job Title']]
 
     elif "age" in prompt:
-        result_df = df[['Entity', 'Age']]
+        return df[['Entity', 'Age']]
 
-    return result_df
+    return pd.DataFrame()
 
 def export_pdf(df):
     buffer = BytesIO()
@@ -85,13 +95,13 @@ def export_pdf(df):
 
 def explain_dashboard(df, prompt):
     sample = df.head(10).to_markdown()
-    explanation_prompt = f"""You are an HR analyst. Here is sample data:
+    explanation_prompt = f\"\"\"You are an HR analyst. Here is sample data:
 
 {sample}
 
-The user asked for: "{prompt}"
+The user asked for: \"{prompt}\"
 
-Please explain the insights from this data in a concise way."""
+Please explain the insights from this data in a concise way.\"\"\"
     explanation = ask_openai(explanation_prompt)
     st.markdown("🧠 **Chart Insights:**")
     st.info(explanation)
