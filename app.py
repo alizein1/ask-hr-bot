@@ -85,7 +85,7 @@ def general_answers(question):
 def main():
     st.set_page_config(page_title="Ask HR", layout="wide")
     st.image("logo.png", width=150)
-st.image("middle_banner_image.png", width=600)
+    st.image("middle_banner_image.png", width=600)  # ✅ No extra space before this
     st.title("🤖 Ask HR - Capital Partners Group")
 
     df, pin_df = load_data()
