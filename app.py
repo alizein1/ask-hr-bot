@@ -9,9 +9,9 @@ from utils.dashboard_utils import (
     generate_excel_download_link,
     generate_pdf_download_link
 )
+
 from utils.policy_utils import load_policy_sections, answer_policy_question
 
-# Page config
 st.set_page_config(page_title="Ask HR - Capital Partners Group", layout="wide")
 
 banner_path = "assets/middle_banner_image.png"
@@ -26,7 +26,6 @@ else:
 st.title("👨‍💼 Ask HR - Capital Partners Group")
 st.markdown("**Ask me anything (salary, leaves, law, employees, dashboards, or policy):**")
 
-# Load data
 df = load_dashboard_data()
 if df is None or df.empty:
     st.error("❌ Could not load employee data. Please check the Excel file path and content.")
@@ -37,28 +36,33 @@ policy_sections = load_policy_sections("data/02 Capital Partners Group Code of C
 user_input = st.text_input("🗨️ Type your question here:")
 
 if user_input:
-    # Try to answer dynamically from Excel data
-    excel_response = dynamic_data_response(df, user_input)
+    lower_input = user_input.lower()
 
-    if excel_response["found"]:
-        # Show results: chart or table + GPT explanation
-        if excel_response["chart"]:
-            st.plotly_chart(excel_response["chart"], use_container_width=True)
-        if excel_response["table"] is not None:
-            st.dataframe(excel_response["table"])
-            st.markdown(generate_excel_download_link(excel_response["table"]), unsafe_allow_html=True)
-            st.markdown(generate_pdf_download_link(excel_response["table"]), unsafe_allow_html=True)
-        if excel_response["explanation"]:
-            st.markdown("🧠 **Insights:**")
-            st.info(excel_response["explanation"])
+    # Check for Excel-related keywords or columns
+    excel_columns = [col.lower() for col in df.columns]
+    excel_keywords = excel_columns + ["dashboard", "chart", "show", "list", "count", "how many", "distribution"]
+
+    if any(keyword in lower_input for keyword in excel_keywords):
+        excel_response = dynamic_data_response(df, user_input)
+        if excel_response["found"]:
+            if excel_response["chart"]:
+                st.plotly_chart(excel_response["chart"], use_container_width=True)
+            if excel_response["table"] is not None:
+                st.dataframe(excel_response["table"])
+                st.markdown(generate_excel_download_link(excel_response["table"]), unsafe_allow_html=True)
+                st.markdown(generate_pdf_download_link(excel_response["table"]), unsafe_allow_html=True)
+            if excel_response["explanation"]:
+                st.markdown("🧠 **Insights:**")
+                st.info(excel_response["explanation"])
+            st.stop()
+
+    # Fallback to policy answer
+    response = answer_policy_question(user_input, policy_sections)
+    if response and "no relevant content found" not in response.lower():
+        st.success("📘 Policy Answer:")
+        st.write(response)
     else:
-        # Fallback: answer from policy
-        response = answer_policy_question(user_input, policy_sections)
-        if response and "no relevant content found" not in response.lower():
-            st.success("📘 Policy Answer:")
-            st.write(response)
-        else:
-            st.info("🤖 Sorry, I couldn't find info in Excel data or policy. Please ask differently.")
+        st.info("🤖 Sorry, I couldn't find info in Excel data or policy. Please try rephrasing your question.")
 
 st.markdown("---")
 st.caption("Capital Partners Group © 2025 — HR Virtual Assistant")
