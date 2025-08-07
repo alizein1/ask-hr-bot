@@ -6,8 +6,13 @@ from PIL import UnidentifiedImageError
 from utils.dashboard_utils import (
     load_dashboard_data,
     generate_excel_download_link,
-    generate_pdf_download_link
+    generate_pdf_download_link,
+    show_dashboard,
+    show_employee_details,
+    export_dashboard_data,
+    explain_dashboard
 )
+
 
 # --- Page config ---
 st.set_page_config(page_title="Ask HR - Capital Partners Group", layout="wide")
