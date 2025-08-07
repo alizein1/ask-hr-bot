@@ -124,7 +124,7 @@ if st.button("Login"):
         st.session_state.authenticated = True
         st.session_state.ecode = ecode
         st.success("Logged in successfully ✅")
-        st.rerun()  # 👈 Force app to re-render and show the rest
+        st.rerun()  # 👈 this forces the app to reload with session state
     else:
         st.error("Invalid credentials. Please try again.")
     else:
