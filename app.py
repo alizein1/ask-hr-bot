@@ -13,7 +13,6 @@ from utils.dashboard_utils import (
     explain_dashboard
 )
 
-
 # --- Page config ---
 st.set_page_config(page_title="Ask HR - Capital Partners Group", layout="wide")
 
