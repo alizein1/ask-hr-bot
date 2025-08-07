@@ -77,7 +77,7 @@ def authenticate(ecode, pin, pin_df):
     pin_df["PIN"] = pin_df["PIN"].astype(str)
     return not pin_df[(pin_df["ECODE"] == ecode) & (pin_df["PIN"] == pin)].empty
 
-def generate_pdf(data, filename="/mnt/data/employee_data.pdf"):
+def generate_pdf(data, filename="employee_data.pdf"):
     doc = SimpleDocTemplate(filename)
     styles = getSampleStyleSheet()
     story = [Paragraph("Employee HR Details", styles["Title"]), Spacer(1, 12)]
@@ -89,11 +89,11 @@ def generate_pdf(data, filename="/mnt/data/employee_data.pdf"):
     return filename
 
 def get_pdf_download_button(emp_data, ecode):
-    filename = f"/mnt/data/employee_data_{ecode}.pdf"
+    filename = f"employee_data_{ecode}.pdf"
     generate_pdf(emp_data, filename)
     with open(filename, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
-    return f'<a href="data:application/pdf;base64,{b64}" download="employee_data_{ecode}.pdf">📥 Download My HR Data (PDF)</a>'
+    return f'<a href="data:application/pdf;base64,{b64}" download="{filename}">📥 Download My HR Data (PDF)</a>'
 
 def show_dashboard(df, query):
     query = query.lower()
