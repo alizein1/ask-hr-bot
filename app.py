@@ -3,11 +3,9 @@ import streamlit as st
 import pandas as pd
 import base64
 from io import BytesIO
-from PIL import Image
-import docx
 import plotly.express as px
 
-# Load files
+# Load data
 @st.cache_data
 def load_data():
     df = pd.read_excel("PROLOGISTICS.xlsx")
@@ -15,17 +13,14 @@ def load_data():
     return df, pin_df
 
 @st.cache_data
-def load_policy():
-    doc = docx.Document("02 Capital Partners Group Code of Conducts and Business Ethics Policy.docx")
-    return "\n".join([p.text for p in doc.paragraphs if p.text.strip() != ""])
+def load_policy_txt():
+    with open("capital_partners_policy.txt", "r", encoding="utf-8") as f:
+        return f.read()
 
-# Authenticate login
 def authenticate(ecode, pin, pin_df):
     pin_df["PIN"] = pin_df["PIN"].astype(str)
-    match = pin_df[(pin_df["ECODE"] == ecode) & (pin_df["PIN"] == pin)]
-    return not match.empty
+    return not pin_df[(pin_df["ECODE"] == ecode) & (pin_df["PIN"] == pin)].empty
 
-# Download utility
 def download_dataframe(df, filetype="excel"):
     output = BytesIO()
     if filetype == "excel":
@@ -38,7 +33,6 @@ def download_dataframe(df, filetype="excel"):
     href = f'<a href="data:file/{ext};base64,{b64}" download="employee_data.{ext}">📥 Download {ext.upper()}</a>'
     return href
 
-# Analysis dashboard (only triggered on request)
 def show_dashboard(df, query):
     query = query.lower()
     with st.expander("📊 HR Data Insights"):
@@ -57,56 +51,55 @@ def show_dashboard(df, query):
                 fig = px.histogram(df, x="OVERTIME", title="Overtime Distribution")
                 st.plotly_chart(fig)
 
-        if "join" in query or "joining" in query:
+        if "join" in query:
             if "JOINING DATE" in df.columns:
                 df["JOINING DATE"] = pd.to_datetime(df["JOINING DATE"], errors='coerce')
                 join_counts = df["JOINING DATE"].dt.year.value_counts().sort_index()
                 st.bar_chart(join_counts)
 
         if "area" in query and "Area Mng" in df.columns:
-            area_counts = df["Area Mng"].value_counts()
-            st.bar_chart(area_counts)
+            st.bar_chart(df["Area Mng"].value_counts())
 
-# Policy Q&A
+# Smart search in plain text policy
 def search_policy(policy_text, query):
     query = query.lower()
-    matches = [p for p in policy_text.split("\n") if query in p.lower()]
-    if matches:
-        return "\n\n".join(matches[:5])
+    lines = policy_text.split("\n")
+    matched = [line for line in lines if query in line.lower()]
+    if matched:
+        return "\n\n".join(matched[:5])
 
-    keywords = {
-        "harassment": "Harassment, Discrimination & Workplace Culture",
-        "termination": "Compliance, Enforcement, and Disciplinary Measures",
-        "conflict of interest": "Conflicts of Interest",
-        "bribery": "Zero Tolerance for Corruption, Bribery & Gifts",
-        "ethics": "Code of Ethics and Business Conduct",
-        "data": "Data Protection and Confidentiality",
-        "whistleblower": "Whistleblower Protection and Escalation Channels"
+    # Try keyword approximation
+    keywords = [
+        "harassment", "bribery", "termination", "conflict of interest",
+        "whistleblower", "ethics", "integrity", "disciplinary", "discrimination",
+        "data protection", "fraud", "gifts", "employee behavior", "compliance"
+    ]
+    for word in keywords:
+        if word in query:
+            for line in lines:
+                if word in line.lower():
+                    return f"📌 Found something about '{word}':\n\n{line.strip()}"
+    return "❌ No relevant policy section found."
+
+# General HR responses
+def general_answers(q):
+    q = q.lower()
+    faqs = {
+        "leave": "To apply for leave, send your request to your manager and CC HR.",
+        "salary": "Your salary and related components are listed in the HR table above.",
+        "loan": "Loans are deducted monthly. Contact Finance for breakdowns.",
+        "insurance": "Medical insurance covers hospitalization. Contact HR for card or info.",
+        "attendance": "Make sure your punch is synced. Inform HR if there's an issue."
     }
-    for key, section in keywords.items():
-        if key in query:
-            return f"📌 Refer to the section: **{section}** in the Code of Conduct."
-    return "No relevant section found in the policy document."
+    for k, v in faqs.items():
+        if k in q:
+            return v
+    return "I’ll pass this question to the HR team for a detailed answer."
 
-# General HR Q&A
-def general_answers(question):
-    hr_faq = {
-        "leave": "To apply for leave, send your request to your line manager and CC HR.",
-        "salary slip": "Your salary slip is issued monthly. Contact HR if not received.",
-        "insurance": "Medical insurance covers hospitalization & emergency. For details, email HR.",
-        "attendance": "For attendance issues, please ensure your punch records are synced and notify HR.",
-        "loan": "Loan deductions are shown in your payslip. Contact finance for breakdown."
-    }
-    for keyword, answer in hr_faq.items():
-        if keyword in question.lower():
-            return answer
-    return "I'm forwarding this to the HR team for a detailed response."
-
-# Global policy & data
+# Load everything
 df, pin_df = load_data()
-policy_text = load_policy()
+policy_text = load_policy_txt()
 
-# Main app
 def main():
     st.set_page_config(page_title="Ask HR", layout="wide")
     st.image("logo.png", width=150)
@@ -132,32 +125,25 @@ def main():
 
         st.subheader("🧾 Your HR Details")
         st.dataframe(emp_data)
-        st.markdown(download_dataframe(emp_data, filetype="excel"), unsafe_allow_html=True)
-        st.markdown(download_dataframe(emp_data, filetype="csv"), unsafe_allow_html=True)
+        st.markdown(download_dataframe(emp_data, "excel"), unsafe_allow_html=True)
+        st.markdown(download_dataframe(emp_data, "csv"), unsafe_allow_html=True)
 
         st.subheader("💬 Ask a Question")
-        user_q = st.text_input("What would you like to ask?")
+        question = st.text_input("What would you like to ask?")
 
-        if user_q:
-            query = user_q.lower()
-
-            if any(word in query for word in ["policy", "ethics", "rule", "harassment", "bribery", "termination", "conflict", "zero tolerance", "data"]):
-                st.info("🔍 Searching the policy file...")
-                answer = search_policy(policy_text, query)
-
-            elif any(col.lower() in query for col in df.columns):
-                st.info("📊 Showing your HR data...")
+        if question:
+            q_lower = question.lower()
+            if any(kw in q_lower for kw in ["policy", "ethics", "conduct", "harassment", "termination", "compliance", "behavior", "gifts", "fraud"]):
+                st.info("Searching the policy file...")
+                answer = search_policy(policy_text, q_lower)
+            elif any(col.lower() in q_lower for col in df.columns):
                 answer = emp_data.to_markdown()
-
-            elif any(kw in query for kw in ["analysis", "insights", "show dashboard", "how many", "nationalities", "declared", "overtime", "joining", "area"]):
-                answer = "📊 Here's what I found in the HR analytics:"
-                st.markdown(answer)
-                show_dashboard(df, query)
+            elif any(word in q_lower for word in ["insights", "nationalities", "declared", "area", "overtime", "joining"]):
+                st.markdown("📊 Showing HR insights based on your question:")
+                show_dashboard(df, q_lower)
                 return
-
             else:
-                answer = general_answers(user_q)
-
+                answer = general_answers(q_lower)
             st.markdown(answer)
 
 if __name__ == "__main__":
