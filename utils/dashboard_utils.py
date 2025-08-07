@@ -1,69 +1,79 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
-import re
 
 def load_dashboard_data():
-    return pd.read_excel("data/Mass file - To be used for Dashboard.xlsx")
+    df = pd.read_excel("data/Mass file - To be used for Dashboard.xlsx")
+    df.columns = df.columns.str.strip()
+    return df
 
 def show_dashboard(df, prompt):
-    df.columns = df.columns.str.strip()
-    prompt_lower = prompt.lower()
+    prompt = prompt.lower()
 
-    # Optional entity filtering
-    entity_match = re.search(r"in\s+(capital partners|tawfeer|prologistics|[a-zA-Z ]+)", prompt_lower)
-    if entity_match:
-        entity = entity_match.group(1).strip().title()
-        df = df[df['Entity'].str.lower() == entity.lower()]
-        st.markdown(f"### Dashboard for {entity}")
+    if "entity" in prompt:
+        st.subheader("Employees by Entity")
+        df['Entity'].value_counts().plot(kind='bar')
+        st.pyplot(plt.gcf())
+        plt.clf()
 
-    if "gender" in prompt_lower:
-        show_bar_chart(df, 'Gender', 'Gender Distribution')
+    if "gender" in prompt:
+        st.subheader("Employees by Gender per Entity")
+        grouped = df.groupby(['Entity', 'Gender']).size().unstack(fill_value=0)
+        st.dataframe(grouped)
+        grouped.plot(kind='bar', stacked=True)
+        plt.title("Gender Distribution per Entity")
+        st.pyplot(plt.gcf())
+        plt.clf()
 
-    elif "nationalit" in prompt_lower:
-        show_pie_chart(df, 'Nationality', 'Nationality Breakdown')
+    if "nationalit" in prompt:
+        st.subheader("Employees by Nationality per Entity")
+        grouped = df.groupby(['Entity', 'Nationality']).size().unstack(fill_value=0)
+        st.dataframe(grouped)
+        grouped.plot(kind='bar', stacked=True)
+        plt.title("Nationality Distribution per Entity")
+        st.pyplot(plt.gcf())
+        plt.clf()
 
-    elif "job title" in prompt_lower:
-        show_bar_chart(df, 'Job Title', 'Job Title Distribution')
-
-    elif "grade" in prompt_lower:
-        show_bar_chart(df, 'Grade', 'Grade Distribution')
-
-    elif "band" in prompt_lower:
-        show_bar_chart(df, 'Band', 'Band Distribution')
-
-    elif "age" in prompt_lower:
+    if "age" in prompt:
+        st.subheader("Age Distribution per Entity")
         df['Age Group'] = pd.cut(df['Age'], bins=[18, 25, 35, 45, 55, 70], labels=["18-25", "26-35", "36-45", "46-55", "56+"])
-        show_bar_chart(df, 'Age Group', 'Age Group Distribution')
+        grouped = df.groupby(['Entity', 'Age Group']).size().unstack(fill_value=0)
+        st.dataframe(grouped)
+        grouped.plot(kind='bar', stacked=True)
+        plt.title("Age Group Distribution per Entity")
+        st.pyplot(plt.gcf())
+        plt.clf()
 
-def show_bar_chart(df, column, title):
-    try:
-        counts = df[column].value_counts().sort_values(ascending=False)
-        fig, ax = plt.subplots()
-        counts.plot(kind='bar', ax=ax, color='skyblue', edgecolor='black')
-        ax.set_title(title)
-        ax.set_xlabel(column)
-        ax.set_ylabel('Count')
-        plt.xticks(rotation=45, ha='right')
-        st.pyplot(fig)
-    except Exception as e:
-        st.error(f"Error plotting bar chart: {e}")
+    if "band" in prompt:
+        st.subheader("Employees by Band per Entity")
+        grouped = df.groupby(['Entity', 'Band']).size().unstack(fill_value=0)
+        st.dataframe(grouped)
+        grouped.plot(kind='bar', stacked=True)
+        plt.title("Bands per Entity")
+        st.pyplot(plt.gcf())
+        plt.clf()
 
-def show_pie_chart(df, column, title):
-    try:
-        counts = df[column].value_counts()
-        fig, ax = plt.subplots()
-        ax.pie(counts, labels=counts.index, autopct='%1.1f%%', startangle=140)
-        ax.set_title(title)
-        st.pyplot(fig)
-    except Exception as e:
-        st.error(f"Error plotting pie chart: {e}")
+    if "grade" in prompt:
+        st.subheader("Employees by Grade per Entity")
+        grouped = df.groupby(['Entity', 'Grade']).size().unstack(fill_value=0)
+        st.dataframe(grouped)
+        grouped.plot(kind='bar', stacked=True)
+        plt.title("Grades per Entity")
+        st.pyplot(plt.gcf())
+        plt.clf()
 
-def show_employee_details(df, name):
-    name_lower = name.lower()
-    results = df[df['Full Name'].str.lower().str.contains(name_lower, na=False)]
-    if results.empty:
-        st.warning("No employee found matching that name.")
+    if "job title" in prompt:
+        st.subheader("Top Job Titles per Entity")
+        grouped = df.groupby(['Entity', 'Job Title']).size().unstack(fill_value=0)
+        st.dataframe(grouped)
+        grouped.T.head(10).plot(kind='bar', stacked=True)
+        plt.title("Top Job Titles per Entity")
+        st.pyplot(plt.gcf())
+        plt.clf()
+
+def show_employee_details(df, prompt):
+    name_matches = df[df['Full Name'].str.lower().str.contains(prompt.lower(), na=False)]
+    if not name_matches.empty:
+        st.table(name_matches)
     else:
-        st.markdown("### 👤 Employee Details:")
-        st.dataframe(results.reset_index(drop=True))
+        st.warning("No employee found matching the name.")
