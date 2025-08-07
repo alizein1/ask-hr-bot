@@ -4,84 +4,117 @@ import pandas as pd
 import base64
 from io import BytesIO
 import plotly.express as px
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
-# Load data
+# ================== SMART POLICY CHATBOT ==================
+def smart_policy_answer(query):
+    q = query.lower().strip()
+    topics = [
+        {
+            "keywords": ["who does the code apply", "scope", "copy of the policy", "how often reviewed", "what is the code"],
+            "answer": "The Code applies to all employees, executives, partners, and suppliers of Capital Partners Group. It provides a clear ethical foundation for decision-making and outlines expectations for professional, legal, and values-based conduct."
+        },
+        {
+            "keywords": ["company values", "values guide", "expected from leaders"],
+            "answer": "CPG's core values are: Quality, Credibility, Growth, Commitment, Accountability, Professionalism, and Integrity. Leaders must model ethical behavior and integrate the Code into team discussions and decisions."
+        },
+        {
+            "keywords": ["ethical decisions", "witness unethical", "report misconduct", "consequences of violating"],
+            "answer": "Employees are expected to act legally, align with values, and report concerns to managers, HR, or anonymously. There will be no retaliation. Violations may lead to disciplinary action."
+        },
+        {
+            "keywords": ["bribery", "gifts", "corruption", "kickbacks"],
+            "answer": "Bribery, gifts, and personal benefits are forbidden. Anything offered to public officials requires prior HR approval. Violations may result in termination."
+        },
+        {
+            "keywords": ["conflict of interest", "another job", "hire relative"],
+            "answer": "Conflicts must be disclosed if they involve outside work, relatives, or financial interest in vendors/competitors. All disclosures go through HR or management."
+        },
+        {
+            "keywords": ["harassment", "discrimination", "bullying", "offensive comments"],
+            "answer": "All harassment or discrimination is prohibited. Reports can go to HR or Ethics Hotline. No retaliation is tolerated. Disciplinary action will follow confirmed cases."
+        },
+        {
+            "keywords": ["confidential information", "company data", "data protection"],
+            "answer": "Company data must be handled securely, accessed only as needed, and never used for personal purposes. Breaches must be reported immediately."
+        },
+        {
+            "keywords": ["whistleblower", "retaliation", "wrongdoing", "hotline"],
+            "answer": "CPG ensures anonymous reporting and zero retaliation. Reports are investigated seriously and confidentially."
+        },
+        {
+            "keywords": ["suppliers", "vendors", "third party"],
+            "answer": "All vendors must follow CPG's Code. Violations like unsafe labor, bribery, or unauthorized subcontracting result in contract termination."
+        },
+        {
+            "keywords": ["sustainability", "environment", "social responsibility", "communities"],
+            "answer": "CPG supports sustainability, compliance with environmental laws, and invests in community education, health, and development."
+        },
+        {
+            "keywords": ["political", "politics", "donations"],
+            "answer": "No company resources can be used for political activities. Employees may not use their position for political gain and must disclose public roles."
+        },
+        {
+            "keywords": ["violations", "disciplinary actions", "compliance", "enforcement"],
+            "answer": "Violations may lead to warnings, suspension, termination, or legal action. CPG may audit and expects full cooperation."
+        }
+    ]
+    for topic in topics:
+        for keyword in topic["keywords"]:
+            if keyword in q:
+                return topic["answer"]
+    return "❌ Sorry, I couldn't find a specific answer. Please contact HR for more information."
+
+# ================ APP UTILITY FUNCTIONS ===================
 @st.cache_data
 def load_data():
     df = pd.read_excel("PROLOGISTICS.xlsx")
     pin_df = pd.read_csv("Employee_PIN_List.csv")
     return df, pin_df
 
-@st.cache_data
-def load_policy_txt():
-    with open("capital_partners_policy.txt", "r", encoding="utf-8") as f:
-        return f.read()
-
 def authenticate(ecode, pin, pin_df):
     pin_df["PIN"] = pin_df["PIN"].astype(str)
     return not pin_df[(pin_df["ECODE"] == ecode) & (pin_df["PIN"] == pin)].empty
 
-def download_dataframe(df, filetype="excel"):
-    output = BytesIO()
-    if filetype == "excel":
-        df.to_excel(output, index=False)
-        ext = "xlsx"
-    else:
-        df.to_csv(output, index=False)
-        ext = "csv"
-    b64 = base64.b64encode(output.getvalue()).decode()
-    href = f'<a href="data:file/{ext};base64,{b64}" download="employee_data.{ext}">📥 Download {ext.upper()}</a>'
-    return href
+def generate_pdf(data, filename="/mnt/data/employee_data.pdf"):
+    doc = SimpleDocTemplate(filename)
+    styles = getSampleStyleSheet()
+    story = [Paragraph("Employee HR Details", styles["Title"]), Spacer(1, 12)]
+    for col in data.columns:
+        value = data.iloc[0][col]
+        story.append(Paragraph(f"<b>{col}:</b> {value}", styles["Normal"]))
+        story.append(Spacer(1, 6))
+    doc.build(story)
+    return filename
+
+def get_pdf_download_button(emp_data, ecode):
+    filename = f"/mnt/data/employee_data_{ecode}.pdf"
+    generate_pdf(emp_data, filename)
+    with open(filename, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+    return f'<a href="data:application/pdf;base64,{b64}" download="employee_data_{ecode}.pdf">📥 Download My HR Data (PDF)</a>'
 
 def show_dashboard(df, query):
     query = query.lower()
     with st.expander("📊 HR Data Insights"):
-        if "nationalities" in query:
-            if "Nationality" in df.columns:
-                fig = px.histogram(df, x="Nationality", title="Employee Nationalities")
-                st.plotly_chart(fig)
-
+        if "nationalities" in query and "Nationality" in df.columns:
+            fig = px.histogram(df, x="Nationality", title="Employee Nationalities")
+            st.plotly_chart(fig)
         if "declared" in query or "nssf" in query:
             if "SOCIAL SECURITY NUMBER" in df.columns:
                 declared = df["SOCIAL SECURITY NUMBER"].notna().sum()
                 st.metric("Declared Employees", declared)
-
-        if "overtime" in query:
-            if "OVERTIME" in df.columns:
-                fig = px.histogram(df, x="OVERTIME", title="Overtime Distribution")
-                st.plotly_chart(fig)
-
-        if "join" in query:
-            if "JOINING DATE" in df.columns:
-                df["JOINING DATE"] = pd.to_datetime(df["JOINING DATE"], errors='coerce')
-                join_counts = df["JOINING DATE"].dt.year.value_counts().sort_index()
-                st.bar_chart(join_counts)
-
+        if "overtime" in query and "OVERTIME" in df.columns:
+            fig = px.histogram(df, x="OVERTIME", title="Overtime Distribution")
+            st.plotly_chart(fig)
+        if "join" in query and "JOINING DATE" in df.columns:
+            df["JOINING DATE"] = pd.to_datetime(df["JOINING DATE"], errors='coerce')
+            join_counts = df["JOINING DATE"].dt.year.value_counts().sort_index()
+            st.bar_chart(join_counts)
         if "area" in query and "Area Mng" in df.columns:
             st.bar_chart(df["Area Mng"].value_counts())
 
-# Smart search in plain text policy
-def search_policy(policy_text, query):
-    query = query.lower()
-    lines = policy_text.split("\n")
-    matched = [line for line in lines if query in line.lower()]
-    if matched:
-        return "\n\n".join(matched[:5])
-
-    # Try keyword approximation
-    keywords = [
-        "harassment", "bribery", "termination", "conflict of interest",
-        "whistleblower", "ethics", "integrity", "disciplinary", "discrimination",
-        "data protection", "fraud", "gifts", "employee behavior", "compliance"
-    ]
-    for word in keywords:
-        if word in query:
-            for line in lines:
-                if word in line.lower():
-                    return f"📌 Found something about '{word}':\n\n{line.strip()}"
-    return "❌ No relevant policy section found."
-
-# General HR responses
 def general_answers(q):
     q = q.lower()
     faqs = {
@@ -96,9 +129,8 @@ def general_answers(q):
             return v
     return "I’ll pass this question to the HR team for a detailed answer."
 
-# Load everything
+# ====================== MAIN APP ==========================
 df, pin_df = load_data()
-policy_text = load_policy_txt()
 
 def main():
     st.set_page_config(page_title="Ask HR", layout="wide")
@@ -125,17 +157,19 @@ def main():
 
         st.subheader("🧾 Your HR Details")
         st.dataframe(emp_data)
-        st.markdown(download_dataframe(emp_data, "excel"), unsafe_allow_html=True)
-        st.markdown(download_dataframe(emp_data, "csv"), unsafe_allow_html=True)
+        st.markdown(get_pdf_download_button(emp_data, ecode), unsafe_allow_html=True)
 
         st.subheader("💬 Ask a Question")
         question = st.text_input("What would you like to ask?")
-
         if question:
             q_lower = question.lower()
-            if any(kw in q_lower for kw in ["policy", "ethics", "conduct", "harassment", "termination", "compliance", "behavior", "gifts", "fraud"]):
-                st.info("Searching the policy file...")
-                answer = search_policy(policy_text, q_lower)
+            if any(word in q_lower for word in [
+                "policy", "ethics", "conduct", "harassment", "corruption", "bribery",
+                "conflict", "values", "zero tolerance", "disciplinary", "code of ethics",
+                "data protection", "confidential", "political", "whistleblower", "vendors", "suppliers"
+            ]):
+                st.info("Answering your policy question...")
+                answer = smart_policy_answer(q_lower)
             elif any(col.lower() in q_lower for col in df.columns):
                 answer = emp_data.to_markdown()
             elif any(word in q_lower for word in ["insights", "nationalities", "declared", "area", "overtime", "joining"]):
