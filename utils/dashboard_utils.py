@@ -1,92 +1,134 @@
 import pandas as pd
-import matplotlib.pyplot as plt
-import streamlit as st
-from io import BytesIO
-from reportlab.platypus import SimpleDocTemplate, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
+import plotly.express as px
 from utils.openai_utils import ask_openai
 
 def load_dashboard_data():
     return pd.read_excel("data/Mass file - To be used for Dashboard.xlsx")
 
-def show_employee_details(df, prompt):
-    filtered = df[df['Full Name'].str.lower().str.contains(prompt.lower())]
-    if not filtered.empty:
-        st.dataframe(filtered)
+def dynamic_data_response(df: pd.DataFrame, question: str) -> dict:
+    """
+    Analyze user question, detect columns and filters,
+    return a dict:
+    {
+      "found": bool,
+      "chart": plotly figure or None,
+      "table": pd.DataFrame or None,
+      "explanation": str or None
+    }
+    """
+    # Step 1: Use GPT to parse user question for columns and filters
+    parse_prompt = f"""
+You are a data analyst. The columns available are: {list(df.columns)}.
+A user asked: \"{question}\".
+
+Return a JSON with keys:
+- columns: list of columns to group or filter by,
+- filters: dictionary of filters in the format {{"ColumnName": "value"}},
+- aggregate: what to count or summarize (e.g. count, average of Salary),
+- response_type: either 'chart' or 'table'.
+
+Return only valid columns existing in the data.
+If no meaningful columns found, return empty lists/dicts.
+Example:
+{{
+  "columns": ["Nationality"],
+  "filters": {{"Entity": "Tawfeer"}},
+  "aggregate": "count",
+  "response_type": "chart"
+}}
+"""
+
+    parse_response = ask_openai(parse_prompt)
+
+    # Parse JSON response safely
+    import json
+    try:
+        parsed = json.loads(parse_response)
+    except:
+        return {"found": False, "chart": None, "table": None, "explanation": None}
+
+    if not parsed.get("columns") and not parsed.get("filters"):
+        return {"found": False, "chart": None, "table": None, "explanation": None}
+
+    # Step 2: Filter the DataFrame by filters
+    df_filtered = df.copy()
+    for col, val in parsed.get("filters", {}).items():
+        if col in df_filtered.columns:
+            df_filtered = df_filtered[df_filtered[col].astype(str).str.contains(val, case=False, na=False)]
+
+    # Step 3: Aggregate and build chart or table
+    group_cols = parsed.get("columns", [])
+    aggregate = parsed.get("aggregate", "count")
+    response_type = parsed.get("response_type", "chart")
+
+    if not group_cols:
+        # Just show filtered table
+        explanation = ask_openai(f"Analyze this data sample:\n{df_filtered.head(10).to_markdown()}\nQuestion: {question}\nProvide a concise insight summary.")
+        return {"found": True, "chart": None, "table": df_filtered, "explanation": explanation}
+
+    if aggregate == "count":
+        agg_df = df_filtered.groupby(group_cols).size().reset_index(name="Count")
+    elif aggregate.startswith("average"):
+        # Extract column name from aggregate string: "average of Salary"
+        colname = aggregate.split("of")[-1].strip()
+        if colname in df_filtered.columns:
+            agg_df = df_filtered.groupby(group_cols)[colname].mean().reset_index()
+            agg_df.rename(columns={colname: f"Average {colname}"}, inplace=True)
+        else:
+            agg_df = df_filtered.groupby(group_cols).size().reset_index(name="Count")
     else:
-        st.warning("No matching employee found.")
+        agg_df = df_filtered.groupby(group_cols).size().reset_index(name="Count")
 
-def show_dashboard(df, prompt):
-    prompt = prompt.lower()
-    if "nationalit" in prompt:
-        data = df.groupby(['Entity', 'Nationality']).size().unstack(fill_value=0)
-        st.bar_chart(data.T)
-    elif "gender" in prompt:
-        data = df.groupby(['Entity', 'Gender']).size().unstack(fill_value=0)
-        st.bar_chart(data.T)
-    elif "band" in prompt:
-        data = df.groupby(['Entity', 'Band']).size().unstack(fill_value=0)
-        st.bar_chart(data.T)
-    elif "grade" in prompt:
-        data = df.groupby(['Entity', 'Grade']).size().unstack(fill_value=0)
-        st.bar_chart(data.T)
-    elif "job title" in prompt:
-        data = df.groupby(['Entity', 'Job Title']).size().unstack(fill_value=0)
-        st.bar_chart(data.T)
-    elif "age" in prompt:
-        bins = [18, 25, 35, 45, 55, 70]
-        labels = ["18-25", "26-35", "36-45", "46-55", "56+"]
-        df['Age Group'] = pd.cut(df['Age'], bins=bins, labels=labels)
-        data = df.groupby(['Entity', 'Age Group']).size().unstack(fill_value=0)
-        st.bar_chart(data.T)
+    # Step 4: Build chart if requested
+    fig = None
+    if response_type == "chart":
+        if len(group_cols) == 1:
+            fig = px.bar(agg_df, x=group_cols[0], y=agg_df.columns[-1], title=f"Dashboard: {group_cols[0]} vs {agg_df.columns[-1]}")
+        elif len(group_cols) == 2:
+            fig = px.bar(agg_df, x=group_cols[0], y=agg_df.columns[-1], color=group_cols[1], barmode="group",
+                         title=f"Dashboard: {group_cols[0]} & {group_cols[1]} vs {agg_df.columns[-1]}")
+        else:
+            fig = px.bar(agg_df, x=group_cols[0], y=agg_df.columns[-1], title=f"Dashboard: {group_cols[0]} vs {agg_df.columns[-1]}")
 
-def export_dashboard_data(df, prompt):
-    prompt = prompt.lower()
-    if "nationalit" in prompt:
-        return df[['Entity', 'Nationality']]
-    elif "gender" in prompt:
-        return df[['Entity', 'Gender']]
-    elif "band" in prompt:
-        return df[['Entity', 'Band']]
-    elif "grade" in prompt:
-        return df[['Entity', 'Grade']]
-    elif "job title" in prompt:
-        return df[['Entity', 'Job Title']]
-    elif "age" in prompt:
-        return df[['Entity', 'Age']]
-    return pd.DataFrame()
+    # Step 5: GPT explanation of the aggregated data
+    explanation_prompt = f"Here is aggregated data:\n{agg_df.head(10).to_markdown()}\nQuestion: {question}\nProvide a concise insightful summary."
+    explanation = ask_openai(explanation_prompt)
 
-def export_pdf(df):
+    return {
+        "found": True,
+        "chart": fig,
+        "table": agg_df,
+        "explanation": explanation
+    }
+
+def generate_excel_download_link(df):
+    from io import BytesIO
+    import base64
+    buffer = BytesIO()
+    df.to_excel(buffer, index=False)
+    buffer.seek(0)
+    b64 = base64.b64encode(buffer.read()).decode()
+    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="export.xlsx">📥 Download Excel file</a>'
+    return href
+
+def generate_pdf_download_link(df):
+    from io import BytesIO
+    from reportlab.platypus import SimpleDocTemplate, Paragraph
+    from reportlab.lib.styles import getSampleStyleSheet
+
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer)
     styles = getSampleStyleSheet()
     elements = [Paragraph("Dashboard Export", styles["Title"])]
+
     for col in df.columns:
         text = f"<b>{col}</b>: {', '.join(map(str, df[col].unique()))}"
         elements.append(Paragraph(text, styles["Normal"]))
+
     doc.build(elements)
     buffer.seek(0)
-    return buffer
 
-def generate_excel_download_link(df):
-    buffer = BytesIO()
-    df.to_excel(buffer, index=False)
-    buffer.seek(0)
-    return st.download_button("📥 Download Excel", buffer, file_name="dashboard_data.xlsx")
-
-def generate_pdf_download_link(df):
-    pdf = export_pdf(df)
-    return st.download_button("📄 Download PDF", pdf, file_name="dashboard_data.pdf")
-
-def explain_dashboard(df, prompt):
-    sample = df.head(10).to_markdown()
-    explanation_prompt = f"""You are an HR analyst. Here is sample data:
-
-{sample}
-
-The user asked for: "{prompt}"
-
-Please explain the insights from this data in a concise way."""
-    explanation = ask_openai(explanation_prompt)
-    st.markdown("🧠 **Chart Insights:**")
-    st.info(explanation)
+    import base64
+    b64 = base64.b64encode(buffer.read()).decode()
+    href = f'<a href="data:application/pdf;base64,{b64}" download="export.pdf">📄 Download PDF file</a>'
+    return href
