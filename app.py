@@ -38,10 +38,11 @@ user_input = st.text_input("🗨️ Type your question here:")
 if user_input:
     lower_input = user_input.lower()
 
-    # Check for Excel-related keywords or columns
+    # Check Excel columns and keywords
     excel_columns = [col.lower() for col in df.columns]
     excel_keywords = excel_columns + ["dashboard", "chart", "show", "list", "count", "how many", "distribution"]
 
+    # Try Excel data answer first
     if any(keyword in lower_input for keyword in excel_keywords):
         excel_response = dynamic_data_response(df, user_input)
         if excel_response["found"]:
@@ -54,9 +55,9 @@ if user_input:
             if excel_response["explanation"]:
                 st.markdown("🧠 **Insights:**")
                 st.info(excel_response["explanation"])
-            st.stop()
+            st.stop()  # Stop fallback to policy
 
-    # Fallback to policy answer
+    # Otherwise fallback to policy
     response = answer_policy_question(user_input, policy_sections)
     if response and "no relevant content found" not in response.lower():
         st.success("📘 Policy Answer:")
