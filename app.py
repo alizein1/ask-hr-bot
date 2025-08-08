@@ -224,6 +224,7 @@ else:
             cols[1].image('hr_team_photos/thumbnail_IMG_3529.jpg', use_column_width=True)
             cols[2].image('hr_team_photos/thumbnail_IMG_3767.jpg', use_column_width=True)
             cols[0].image('hr_team_photos/thumbnail_IMG_3958.jpg', use_column_width=True)
+            cols[2].image('hr_team_photos/thumbnail_IMG_3989.jpg', use_column_width=True)  # NEW PHOTO ADDED!
             st.stop()
 
         # Special historical Q&A
