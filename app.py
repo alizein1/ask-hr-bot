@@ -47,26 +47,25 @@ def parse_policy_sections(policy_text):
     return sections
 
 def match_policy_section(query, sections):
-    q = query.lower()
+    q = query.lower().strip()
 
-    # Broader phrase lists per section (EN + AR core)
+    # Flexible triggers for all policy sections and scenarios
     keywords_map = {
         "1. Purpose and Scope": [
-            "who does the code apply", "scope", "purpose", "policy applies", "policy applies to", "policy coverage",
-            "مين لازم يلتزم", "لمن يطبق"
+            "who does the code apply", "policy applies", "policy coverage", "مين لازم يلتزم", "لمن يطبق", "scope", "purpose"
         ],
         "2. Our Values and Leadership Commitments": [
             "values", "core values", "leadership", "integrity", "ethics culture", "vision", "principles", "guiding values",
             "سلوك القيادة", "قيم الشركة", "قيمنا", "قيم القيادة"
         ],
         "3. Making Ethical Decisions and Speaking Up": [
-            "ethical", "ethics", "report", "speak up", "misconduct", "raise concern", "how to report", "reporting violation",
-            "report problem", "whistleblower", "see someone break the rules", "if i see", "complaint",
-            "how do i file a complaint", "anonymous reporting", "ابلاغ", "اشتكيت", "كيف أبلغ", "كيف أقدم شكوى", "الإبلاغ"
+            "ethical", "ethics", "decision making", "report", "how do i report", "report issue", "reporting violation",
+            "complaint", "how do i file a complaint", "raise a concern", "misconduct", "how do i speak up", "speak up",
+            "ابلاغ", "اشتكيت", "كيف أبلغ", "كيف أقدم شكوى", "الإبلاغ"
         ],
         "4. Zero Tolerance for Corruption, Bribery & Gifts": [
-            "bribe", "gift", "kickback", "vendor", "accepting a gift", "corruption", "entertainment", "can i accept a gift",
-            "is bribery allowed", "commission", "هدية", "رشوة", "مكافأة", "فساد", "فساد مالي"
+            "bribe", "bribery", "gift", "kickback", "vendor", "accepting a gift", "corruption", "entertainment", "commission",
+            "is bribery allowed", "هدية", "رشوة", "مكافأة", "فساد", "فساد مالي"
         ],
         "5. Conflicts of Interest": [
             "conflict of interest", "family", "second job", "related party", "hire my relative", "outside job", "personal gain",
@@ -76,7 +75,9 @@ def match_policy_section(query, sections):
             "harassment", "bully", "bullying", "abuse", "discrimination", "offensive language", "cursed", "insulted",
             "report harassment", "workplace violence", "abusive", "hostile", "verbal abuse", "sexism", "sexual harassment",
             "someone bullied me", "manager abused me", "coworker insulted", "curse words", "swearing", "offensive jokes",
-            "feel unsafe", "my boss yelled", "humiliating staff", "mistreatment", "unfair treatment", "كيف أبلغ عن التنمر", "تحرش", "شتمي", "تعرضت للتنمر", "إهانة", "إساءة", "شتمني", "سلوك مسيء"
+            "feel unsafe", "my boss yelled", "humiliating staff", "mistreatment", "unfair treatment",
+            "كيف أبلغ عن التنمر", "تحرش", "شتمي", "تعرضت للتنمر", "إهانة", "إساءة", "شتمني", "سلوك مسيء",
+            "someone curses me", "coworker shouted", "manager yelled", "if someone bullies me", "if i am cursed"
         ],
         "7. Data Protection and Confidentiality": [
             "confidential", "data", "privacy", "data privacy", "personal data", "data breach", "share company data",
@@ -101,7 +102,8 @@ def match_policy_section(query, sections):
         "12. Compliance, Enforcement, and Disciplinary Measures": [
             "violation", "discipline", "termination", "steal", "stole", "breaking the rules", "consequences",
             "penalties", "misconduct", "get fired", "disciplinary action", "punishment", "legal action", "audit",
-            "fraud", "fraudulent", "can i get fired", "سرقة", "عقوبة", "عقوبات", "طرد", "جزاءات", "فصل", "عقوبات قانونية", "تدابير تأديبية"
+            "fraud", "fraudulent", "can i get fired", "سرقة", "عقوبة", "عقوبات", "طرد", "جزاءات", "فصل", "عقوبات قانونية", "تدابير تأديبية",
+            "what happens if i steal", "what if i break the rules", "what happens if someone steals"
         ],
         "13. Annual Review and Acknowledgment": [
             "review", "acknowledgment", "annual review", "read policy", "policy review", "تحديث سنوي", "مراجعة سنوية"
@@ -114,17 +116,21 @@ def match_policy_section(query, sections):
         ]
     }
 
+    # Special cases for natural questions
+    # "what happens if someone bullies me at work"
+    if "bully" in q or "bullying" in q or "someone bullies me" in q or "تعرضت للتنمر" in q or "شتمني" in q or "curse" in q or "cursed" in q:
+        return "6. Harassment, Discrimination & Workplace Culture", sections.get("6. Harassment, Discrimination & Workplace Culture", "")
+    if "bribery" in q or "is bribery allowed" in q or "can i accept a gift" in q or "رشوة" in q or "هدية" in q:
+        return "4. Zero Tolerance for Corruption, Bribery & Gifts", sections.get("4. Zero Tolerance for Corruption, Bribery & Gifts", "")
+    if "report" in q and ("misconduct" in q or "violation" in q or "problem" in q or "كيف أبلغ" in q):
+        return "3. Making Ethical Decisions and Speaking Up", sections.get("3. Making Ethical Decisions and Speaking Up", "")
+    if "policy" in q or "rule" in q or "code" in q or "ethic" in q or "سياسة" in q or "قانون" in q:
+        return "ALL_POLICY", ""
+    # All mapped keywords
     for section, keywords in keywords_map.items():
         for kw in keywords:
             if kw in q:
                 return section, sections.get(section, "Section content not found.")
-
-    # BROAD fallback: is this a policy-related question?
-    fallback_policy_words = [
-        "policy", "rule", "قانون", "سياسة", "code", "procedure", "ethic", "compliance", "behavior", "conduct", "system", "what is the policy", "what does the code say", "شرح السياسة"
-    ]
-    if any(w in q for w in fallback_policy_words):
-        return "ALL_POLICY", ""  # signal for showing all
 
     return None, "❌ No relevant section found."
 
@@ -160,21 +166,35 @@ def generate_policy_section_pdf(title, content, filename):
     return filename
 
 def match_employee_question(question, emp_data):
-    q = question.lower()
-    # English + Arabic triggers for full details/profile
-    if any(x in q for x in [
-        "my details", "all my data", "my info", "full profile", "my record", "show my details", "show my profile",
-        "كل تفاصيل ملفي", "ملفي بالكامل", "جميع معلوماتي", "بياناتي الكاملة", "أريد كل تفاصيل ملفي", "تفاصيل ملفي"
-    ]):
+    q = question.lower().strip()
+    # Ultra-flexible triggers for full profile/details
+    profile_triggers = [
+        "my details", "all my data", "my info", "full profile", "my record", "show my details", "show my profile", "download my profile", "download my details",
+        "كل تفاصيل ملفي", "ملفي بالكامل", "جميع معلوماتي", "بياناتي الكاملة", "أريد كل تفاصيل ملفي", "تفاصيل ملفي", "pdf ملفي", "تحميل ملفي"
+    ]
+    salary_triggers = [
+        "salary", "salary slip", "payment", "pay", "bonus", "nssf", "income tax", "راتبي", "تفاصيل الراتب", "سلم الرواتب", "الراتب", "كم راتبي", "show me my salary breakdown"
+    ]
+    leave_triggers = [
+        "leave", "annual leave", "vacation", "leave balance", "رصيد الإجازات", "عدد الإجازات", "اجازة", "إجازاتي", "رصيدي من الاجازات", "كم اجازتي"
+    ]
+    nssf_triggers = [
+        "social security", "nssf number", "social number", "رقم الضمان", "رقم الضمان الاجتماعي", "ضمان", "الضمان"
+    ]
+    joining_triggers = [
+        "joining date", "start date", "hire date", "joined", "تاريخ الانضمام", "متى التحاقي", "متى انضممت"
+    ]
+
+    if any(x in q for x in profile_triggers):
         return "📋 Full Employee Info", emp_data
-    elif any(x in q for x in ["salary", "payment", "pay", "bonus", "nssf", "income tax", "راتبي", "تفاصيل الراتب"]):
+    elif any(x in q for x in salary_triggers):
         cols = ["Payment Method", "TRANSPORT", "BONUS", "COMM", "OVERTIME", "ABSENCE", "Loan", "TRN-DD", "InSurance", "FAM ALL", "NSSF 3%", "INCOMETAX", "Total Ded", "Total USD", "Total"]
         return "💰 Salary Breakdown", emp_data[[col for col in cols if col in emp_data.columns]]
-    elif any(x in q for x in ["joining date", "start date", "hire date", "joined", "تاريخ الانضمام", "متى التحاقي"]):
+    elif any(x in q for x in joining_triggers):
         return "📅 Joining Date", emp_data[["JOINING DATE"]]
-    elif any(x in q for x in ["leave", "annual leave", "vacation", "leave balance", "رصيد الإجازات", "عدد الإجازات"]):
+    elif any(x in q for x in leave_triggers):
         return "🌴 Annual Leaves", emp_data[["ANNUAL LEAVES"]]
-    elif any(x in q for x in ["social security", "nssf number", "social number", "رقم الضمان", "رقم الضمان الاجتماعي"]):
+    elif any(x in q for x in nssf_triggers):
         return "🧾 Social Security Number", emp_data[["SOCIAL SECURITY NUMBER"]]
     return None, None
 
@@ -242,28 +262,4 @@ else:
                     generate_policy_section_pdf(sec, txt, pdf_section)
                     with open(pdf_section, "rb") as f:
                         b64 = base64.b64encode(f.read()).decode()
-                        st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download ({sec})</a>', unsafe_allow_html=True)
-            st.stop()
-        elif section and section_text and "not found" not in section_text.lower():
-            st.success(f"🔎 Matched Section: {section}")
-            st.markdown(f"**{section}**\n\n{section_text}")
-            pdf_section = f"section_{section.replace(' ', '_')}.pdf"
-            generate_policy_section_pdf(section, section_text, pdf_section)
-            with open(pdf_section, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
-                st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download This Policy Section (PDF)</a>', unsafe_allow_html=True)
-        else:
-            response, table = match_employee_question(query, emp_data)
-            if response:
-                st.info(response)
-                if table is not None:
-                    st.dataframe(table)
-                    # Show PDF download only if employee asks for full details/profile (English or Arabic)
-                    if "full" in response.lower() or "profile" in response.lower() or "details" in response.lower() or "ملفي" in query or "تفاصيل" in query or "بياناتي" in query:
-                        pdf_name = f"employee_data_{ecode}.pdf"
-                        generate_employee_pdf(emp_data, pdf_name)
-                        with open(pdf_name, "rb") as f:
-                            b64 = base64.b64encode(f.read()).decode()
-                            st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_name}">📥 Download My HR Data (PDF)</a>', unsafe_allow_html=True)
-            else:
-                st.warning("Sorry, I couldn't match your question. Try rephrasing.")
+                        st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download ({sec})</a>', unsafe_allow_html
