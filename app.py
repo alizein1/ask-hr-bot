@@ -138,8 +138,13 @@ def generate_policy_section_pdf(title, content, filename):
 
 def match_employee_question(question, emp_data):
     q = question.lower()
-    # Smart salary/leave/join/ssn/profile logic
-    if any(x in q for x in ["salary", "payment", "pay", "bonus", "nssf", "income tax"]):
+    # English + Arabic triggers for full details/profile
+    if any(x in q for x in [
+        "my details", "all my data", "my info", "full profile", "my record", "show my details", "show my profile",
+        "كل تفاصيل ملفي", "ملفي بالكامل", "جميع معلوماتي", "بياناتي الكاملة", "أريد كل تفاصيل ملفي", "تفاصيل ملفي"
+    ]):
+        return "📋 Full Employee Info", emp_data
+    elif any(x in q for x in ["salary", "payment", "pay", "bonus", "nssf", "income tax"]):
         cols = ["Payment Method", "TRANSPORT", "BONUS", "COMM", "OVERTIME", "ABSENCE", "Loan", "TRN-DD", "InSurance", "FAM ALL", "NSSF 3%", "INCOMETAX", "Total Ded", "Total USD", "Total"]
         return "💰 Salary Breakdown", emp_data[[col for col in cols if col in emp_data.columns]]
     elif any(x in q for x in ["joining date", "start date", "hire date", "joined"]):
@@ -148,8 +153,6 @@ def match_employee_question(question, emp_data):
         return "🌴 Annual Leaves", emp_data[["ANNUAL LEAVES"]]
     elif any(x in q for x in ["social security", "nssf number", "social number"]):
         return "🧾 Social Security Number", emp_data[["SOCIAL SECURITY NUMBER"]]
-    elif any(x in q for x in ["my details", "all my data", "my info", "full profile", "my record", "show my details", "show my profile"]):
-        return "📋 Full Employee Info", emp_data
     return None, None
 
 # === Streamlit UI ===
@@ -220,8 +223,8 @@ else:
                 st.info(response)
                 if table is not None:
                     st.dataframe(table)
-                    # Show PDF download only if employee asks for full details/profile
-                    if "full" in response.lower() or "profile" in response.lower() or "details" in response.lower():
+                    # Show PDF download only if employee asks for full details/profile (English or Arabic)
+                    if "full" in response.lower() or "profile" in response.lower() or "details" in response.lower() or "ملفي" in query or "تفاصيل" in query or "بياناتي" in query:
                         pdf_name = f"employee_data_{ecode}.pdf"
                         generate_employee_pdf(emp_data, pdf_name)
                         with open(pdf_name, "rb") as f:
@@ -229,7 +232,3 @@ else:
                             st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_name}">📥 Download My HR Data (PDF)</a>', unsafe_allow_html=True)
             else:
                 st.warning("Sorry, I couldn't match your question. Try rephrasing.")
-
-    # Don't show HR details by default
-    # st.subheader("🧾 Your HR Details")
-    # st.dataframe(emp_data)
