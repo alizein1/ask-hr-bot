@@ -117,7 +117,6 @@ def match_policy_section(query, sections):
     }
 
     # Special cases for natural questions
-    # "what happens if someone bullies me at work"
     if "bully" in q or "bullying" in q or "someone bullies me" in q or "تعرضت للتنمر" in q or "شتمني" in q or "curse" in q or "cursed" in q:
         return "6. Harassment, Discrimination & Workplace Culture", sections.get("6. Harassment, Discrimination & Workplace Culture", "")
     if "bribery" in q or "is bribery allowed" in q or "can i accept a gift" in q or "رشوة" in q or "هدية" in q:
@@ -169,8 +168,9 @@ def match_employee_question(question, emp_data):
     q = question.lower().strip()
     # Ultra-flexible triggers for full profile/details
     profile_triggers = [
-        "my details", "all my data", "my info", "full profile", "my record", "show my details", "show my profile", "download my profile", "download my details",
-        "كل تفاصيل ملفي", "ملفي بالكامل", "جميع معلوماتي", "بياناتي الكاملة", "أريد كل تفاصيل ملفي", "تفاصيل ملفي", "pdf ملفي", "تحميل ملفي"
+        "my details", "all my data", "my info", "full profile", "my record", "show my details", "show my profile", 
+        "download my profile", "download my details", "my profile",
+        "كل تفاصيل ملفي", "ملفي بالكامل", "جميع معلوماتي", "بياناتي الكاملة", "أريد كل تفاصيل ملفي", "تفاصيل ملفي", "pdf ملفي", "تحميل ملفي", "ملفي"
     ]
     salary_triggers = [
         "salary", "salary slip", "payment", "pay", "bonus", "nssf", "income tax", "راتبي", "تفاصيل الراتب", "سلم الرواتب", "الراتب", "كم راتبي", "show me my salary breakdown"
@@ -262,4 +262,28 @@ else:
                     generate_policy_section_pdf(sec, txt, pdf_section)
                     with open(pdf_section, "rb") as f:
                         b64 = base64.b64encode(f.read()).decode()
-                        st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download ({sec})</a>', unsafe_allow_html
+                        st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download ({sec})</a>', unsafe_allow_html=True)
+            st.stop()
+        elif section and section_text and "not found" not in section_text.lower():
+            st.success(f"🔎 Matched Section: {section}")
+            st.markdown(f"**{section}**\n\n{section_text}")
+            pdf_section = f"section_{section.replace(' ', '_')}.pdf"
+            generate_policy_section_pdf(section, section_text, pdf_section)
+            with open(pdf_section, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode()
+                st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download This Policy Section (PDF)</a>', unsafe_allow_html=True)
+        else:
+            response, table = match_employee_question(query, emp_data)
+            if response:
+                st.info(response)
+                if table is not None:
+                    st.dataframe(table)
+                    # Show PDF download only if employee asks for full details/profile (English or Arabic)
+                    if "full" in response.lower() or "profile" in response.lower() or "details" in response.lower() or "ملفي" in query or "تفاصيل" in query or "بياناتي" in query:
+                        pdf_name = f"employee_data_{ecode}.pdf"
+                        generate_employee_pdf(emp_data, pdf_name)
+                        with open(pdf_name, "rb") as f:
+                            b64 = base64.b64encode(f.read()).decode()
+                            st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_name}">📥 Download My HR Data (PDF)</a>', unsafe_allow_html=True)
+            else:
+                st.warning("Sorry, I couldn't match your question. Try rephrasing.")
