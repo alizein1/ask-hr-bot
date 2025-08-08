@@ -161,9 +161,7 @@ else:
         section, section_text = match_policy_section(query, sections)
         if section:
             st.success(f"🔎 Matched Section: {section}")
-            st.markdown(f"**{section}**
-
-{section_text}")
+            st.markdown(f"**{section}**\n\n{section_text}")
             pdf_section = f"section_{section.replace(' ', '_')}.pdf"
             generate_policy_section_pdf(section, section_text, pdf_section)
             with open(pdf_section, "rb") as f:
