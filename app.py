@@ -10,6 +10,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 import re
+import random
 
 pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
 
@@ -49,7 +50,6 @@ def parse_policy_sections(policy_text):
 def match_policy_section(query, sections):
     q = query.lower()
 
-    # Broader phrase lists per section (EN + AR core)
     keywords_map = {
         "1. Purpose and Scope": [
             "who does the code apply", "scope", "purpose", "policy applies", "policy applies to", "policy coverage",
@@ -119,7 +119,6 @@ def match_policy_section(query, sections):
             if kw in q:
                 return section, sections.get(section, "Section content not found.")
 
-    # BROAD fallback: is this a policy-related question?
     fallback_policy_words = [
         "policy", "rule", "قانون", "سياسة", "code", "procedure", "ethic", "compliance", "behavior", "conduct", "system", "what is the policy", "what does the code say", "شرح السياسة"
     ]
@@ -159,20 +158,65 @@ def generate_policy_section_pdf(title, content, filename):
     doc.build(story)
     return filename
 
+# Mental health smart detection
+def mental_health_responses(q):
+    mh_keywords = [
+        "lonely", "alone", "depressed", "stressed", "burnt out", "overwhelmed",
+        "anxious", "panic", "anxiety", "mental health", "no one listens", "need someone to talk",
+        "worried", "can't sleep", "tired", "sad", "hopeless", "don't feel well",
+        "what to do when I feel lonely", "i feel down", "i feel lost", "unhappy",
+        "how to cope", "how to deal with stress", "i need help", "mental support",
+        "أشعر بالوحدة", "ضغوطات", "قلق", "تعبت", "حدا يسمعني", "أشعر بالإرهاق", "مزاجي سيء", "اكتئاب", "قلقان", "تعبان", "مهموم",
+        "حزين", "أشعر بالحزن", "إرهاق نفسي", "دعم نفسي", "أشعر بالاكتئاب", "أحتاج للمساعدة", "مساعدة نفسية", "ضغوط نفسية"
+    ]
+    responses = [
+        "You are not alone. Your feelings are valid. If you need someone to talk to, our HR team is here to support you.",
+        "We care about your well-being. Taking a small break or talking to a colleague may help. Reach out if you’d like to chat privately.",
+        "If you ever feel overwhelmed, remember it’s okay to ask for help. HR and management support mental health.",
+        "Feeling stressed is a sign to slow down. Consider talking with your manager or a friend, and take care of yourself.",
+        "Mental health matters as much as physical health. Please let HR know if you need support or resources.",
+        "You can always ask for a short break or a mental wellness day if things feel heavy.",
+        "Small steps count. You’re doing better than you think. Don’t hesitate to reach out.",
+        "Our company values your well-being. If you’re feeling down, we can connect you with professional support.",
+        "Taking care of yourself is important. HR is always here to listen.",
+        "Sometimes talking about it makes a big difference. If you want, HR can suggest wellness programs.",
+        "It’s normal to have tough days. You matter and your feelings count.",
+        "If you’d like to explore mental health resources, we’re happy to provide them.",
+        "You're an important part of the team. Your mental wellness is a priority for us.",
+        "Caring for your mental health helps you and your colleagues thrive. We’re here if you need us.",
+        "Don’t hesitate to talk to someone—friends, family, or HR. You deserve support.",
+        "أنت لست وحدك. صحتك النفسية مهمة بالنسبة لنا.",
+        "من الطبيعي أن تمر بأيام صعبة، لا تتردد بطلب الدعم متى احتجت.",
+        "إذا كنت بحاجة لمن يستمع إليك، فريق الموارد البشرية موجود دائمًا.",
+        "كلنا معرضون للضغوط. لا تخجل من مشاركة مشاعرك مع شخص تثق به.",
+        "الصحة النفسية أولويتنا جميعاً. لا تتردد بالطلب المساعدة.",
+        "تحدث مع زميل أو صديق، أحياناً الحديث فقط يخفف عنك.",
+        "أنت جزء مهم من الفريق وراحتك النفسية ضرورية لنجاحك.",
+        # Add up to 100 unique statements as desired...
+    ]
+    for kw in mh_keywords:
+        if kw in q:
+            return random.choice(responses)
+    return None
+
 def match_employee_question(question, emp_data):
     q = question.lower()
-    # English + Arabic triggers for full details/profile
-    if any(x in q for x in [
+    # Super expanded triggers for full details/profile
+    full_triggers = [
+        # English
         "my details", "all my data", "my info", "full profile", "my record", "show my details", "show my profile",
-        "كل تفاصيل ملفي", "ملفي بالكامل", "جميع معلوماتي", "بياناتي الكاملة", "أريد كل تفاصيل ملفي", "تفاصيل ملفي"
-    ]):
+        "my complete file", "show everything about me", "all my info", "see my full info", "display my file", "all about me", "all fields", "show my personal data", "all my records", "complete employee details", "full details", "all of my information", "see my data", "give me everything",
+        # Arabic
+        "كل تفاصيل ملفي", "ملفي بالكامل", "جميع معلوماتي", "بياناتي الكاملة", "أريد كل تفاصيل ملفي", "تفاصيل ملفي", "ملفي", "بياناتي", "أظهر لي كل شيء", "كل عني", "جميع الحقول", "ملف الموظف بالكامل", "معلوماتي كاملة", "كامل بياناتي", "كل شيء عني", "ملفي الشخصي الكامل"
+    ]
+    if any(x in q for x in full_triggers):
         return "📋 Full Employee Info", emp_data
-    elif any(x in q for x in ["salary", "payment", "pay", "bonus", "nssf", "income tax", "راتبي", "تفاصيل الراتب"]):
+    elif any(x in q for x in ["salary", "payment", "pay", "bonus", "nssf", "income tax", "راتبي", "تفاصيل الراتب", "قيمة راتبي", "أريد تفاصيل راتبي"]):
         cols = ["Payment Method", "TRANSPORT", "BONUS", "COMM", "OVERTIME", "ABSENCE", "Loan", "TRN-DD", "InSurance", "FAM ALL", "NSSF 3%", "INCOMETAX", "Total Ded", "Total USD", "Total"]
         return "💰 Salary Breakdown", emp_data[[col for col in cols if col in emp_data.columns]]
-    elif any(x in q for x in ["joining date", "start date", "hire date", "joined", "تاريخ الانضمام", "متى التحاقي"]):
+    elif any(x in q for x in ["joining date", "start date", "hire date", "joined", "تاريخ الانضمام", "متى التحاقي", "متى بدأت العمل", "تاريخ بداية عملي"]):
         return "📅 Joining Date", emp_data[["JOINING DATE"]]
-    elif any(x in q for x in ["leave", "annual leave", "vacation", "leave balance", "رصيد الإجازات", "عدد الإجازات"]):
+    elif any(x in q for x in ["leave", "annual leave", "vacation", "leave balance", "رصيد الإجازات", "عدد الإجازات", "كم اجازاتي", "اجازاتي", "رصيدي"]):
         return "🌴 Annual Leaves", emp_data[["ANNUAL LEAVES"]]
     elif any(x in q for x in ["social security", "nssf number", "social number", "رقم الضمان", "رقم الضمان الاجتماعي"]):
         return "🧾 Social Security Number", emp_data[["SOCIAL SECURITY NUMBER"]]
@@ -216,54 +260,4 @@ else:
         ]
         if any(kw in query.lower() for kw in hr_keywords):
             st.subheader('👥 Meet Your HR Team')
-            cols = st.columns(3)
-            cols[0].image('hr_team_photos/thumbnail_IMG_0396.jpg', use_column_width=True)
-            cols[1].image('hr_team_photos/thumbnail_IMG_3345.jpg', use_column_width=True)
-            cols[2].image('hr_team_photos/thumbnail_IMG_3347.jpg', use_column_width=True)
-            cols[0].image('hr_team_photos/thumbnail_IMG_3522.jpg', use_column_width=True)
-            cols[1].image('hr_team_photos/thumbnail_IMG_3529.jpg', use_column_width=True)
-            cols[2].image('hr_team_photos/thumbnail_IMG_3767.jpg', use_column_width=True)
-            cols[0].image('hr_team_photos/thumbnail_IMG_3958.jpg', use_column_width=True)
-            cols[2].image('hr_team_photos/thumbnail_IMG_3989.jpg', use_column_width=True)  # NEW PHOTO ADDED!
-            st.stop()
-
-        # Special historical Q&A
-        if "من اغتال ولي عهد النمسا" in query:
-            st.success("فرانس فرديناند")
-            st.stop()
-
-        section, section_text = match_policy_section(query, sections)
-        if section == "ALL_POLICY":
-            st.info("🔎 Please select a policy section to learn more or download:")
-            for sec, txt in sections.items():
-                if sec[0].isdigit():
-                    st.markdown(f"**{sec}** — {txt.split('.')[0][:70]}...")
-                    pdf_section = f"section_{sec.replace(' ', '_')}.pdf"
-                    generate_policy_section_pdf(sec, txt, pdf_section)
-                    with open(pdf_section, "rb") as f:
-                        b64 = base64.b64encode(f.read()).decode()
-                        st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download ({sec})</a>', unsafe_allow_html=True)
-            st.stop()
-        elif section and section_text and "not found" not in section_text.lower():
-            st.success(f"🔎 Matched Section: {section}")
-            st.markdown(f"**{section}**\n\n{section_text}")
-            pdf_section = f"section_{section.replace(' ', '_')}.pdf"
-            generate_policy_section_pdf(section, section_text, pdf_section)
-            with open(pdf_section, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
-                st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download This Policy Section (PDF)</a>', unsafe_allow_html=True)
-        else:
-            response, table = match_employee_question(query, emp_data)
-            if response:
-                st.info(response)
-                if table is not None:
-                    st.dataframe(table)
-                    # Show PDF download only if employee asks for full details/profile (English or Arabic)
-                    if "full" in response.lower() or "profile" in response.lower() or "details" in response.lower() or "ملفي" in query or "تفاصيل" in query or "بياناتي" in query:
-                        pdf_name = f"employee_data_{ecode}.pdf"
-                        generate_employee_pdf(emp_data, pdf_name)
-                        with open(pdf_name, "rb") as f:
-                            b64 = base64.b64encode(f.read()).decode()
-                            st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_name}">📥 Download My HR Data (PDF)</a>', unsafe_allow_html=True)
-            else:
-                st.warning("Sorry, I couldn't match your question. Try rephrasing.")
+            cols = st
