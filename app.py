@@ -11,7 +11,6 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 import re
 
-# Register Unicode font for Arabic support
 pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
 
 @st.cache_data
@@ -50,21 +49,55 @@ def parse_policy_sections(policy_text):
 def match_policy_section(query, sections):
     q = query.lower()
     keywords_map = {
-        "1. Purpose and Scope": ["who does the code apply", "scope", "purpose"],
-        "2. Our Values and Leadership Commitments": ["values", "ethics", "integrity", "leadership"],
-        "3. Making Ethical Decisions and Speaking Up": ["ethical", "report", "speak up", "misconduct"],
-        "4. Zero Tolerance for Corruption, Bribery & Gifts": ["bribe", "gift", "kickback", "vendor", "entertainment"],
-        "5. Conflicts of Interest": ["conflict of interest", "family", "second job", "related party"],
-        "6. Harassment, Discrimination & Workplace Culture": ["harassment", "bully", "abuse", "discrimination"],
-        "7. Data Protection and Confidentiality": ["confidential", "data", "privacy"],
-        "8. Whistleblower Protection and Escalation Channels": ["whistleblower", "retaliation", "anonymous", "hotline"],
-        "9. Vendor and Supplier Integrity Standards": ["vendor", "supplier", "third-party"],
-        "10. Environment and Social Responsibility": ["environment", "sustainability", "community"],
-        "11. Political Neutrality and Government Relations": ["politics", "elections", "public official"],
-        "12. Compliance, Enforcement, and Disciplinary Measures": ["violation", "discipline", "termination"],
-        "13. Annual Review and Acknowledgment": ["review", "acknowledgment"],
-        "14. Conclusion": ["conclusion", "summary"],
-        "15. Employee Receipt & Acceptance": ["receipt", "signature", "accept"]
+        "1. Purpose and Scope": [
+            "who does the code apply", "scope", "purpose"
+        ],
+        "2. Our Values and Leadership Commitments": [
+            "values", "ethics", "integrity", "leadership"
+        ],
+        "3. Making Ethical Decisions and Speaking Up": [
+            "ethical", "report", "speak up", "misconduct", "report violation",
+            "raise a concern", "whistleblower", "see someone break the rules", "how do i report a violation",
+            "how do i raise a concern", "can i report unethical", "how do i speak up"
+        ],
+        "4. Zero Tolerance for Corruption, Bribery & Gifts": [
+            "bribe", "gift", "kickback", "vendor", "entertainment", "can i accept a gift", "is bribery", "take a commission"
+        ],
+        "5. Conflicts of Interest": [
+            "conflict of interest", "family", "second job", "related party", "hire my relative", "work another job"
+        ],
+        "6. Harassment, Discrimination & Workplace Culture": [
+            "harassment", "bully", "abuse", "discrimination", "bullied", "cursed", "insulted", "report harassment",
+            "process for workplace abuse", "someone bullied me", "manager abused me", "coworker insulted", "someone curses at me"
+        ],
+        "7. Data Protection and Confidentiality": [
+            "confidential", "data", "privacy", "can i share company data", "what is confidential"
+        ],
+        "8. Whistleblower Protection and Escalation Channels": [
+            "whistleblower", "retaliation", "anonymous", "hotline", "protected if i report", "is it safe to report"
+        ],
+        "9. Vendor and Supplier Integrity Standards": [
+            "vendor", "supplier", "third-party", "vendor rules"
+        ],
+        "10. Environment and Social Responsibility": [
+            "environment", "sustainability", "community", "environmental policies", "sustainability at cpg"
+        ],
+        "11. Political Neutrality and Government Relations": [
+            "politics", "elections", "public official", "political activity at work"
+        ],
+        "12. Compliance, Enforcement, and Disciplinary Measures": [
+            "violation", "discipline", "termination", "what if i steal", "break company rules", "consequences", "penalties",
+            "misconduct", "get fired for discrimination", "disciplinary action", "penalties for theft", "fraud"
+        ],
+        "13. Annual Review and Acknowledgment": [
+            "review", "acknowledgment"
+        ],
+        "14. Conclusion": [
+            "conclusion", "summary"
+        ],
+        "15. Employee Receipt & Acceptance": [
+            "receipt", "signature", "accept"
+        ]
     }
     for section, keywords in keywords_map.items():
         for kw in keywords:
@@ -99,12 +132,13 @@ def generate_employee_pdf(df, filename):
 def generate_policy_section_pdf(title, content, filename):
     doc = SimpleDocTemplate(filename, pagesize=A4)
     styles = getSampleStyleSheet()
-    story = [Paragraph(title, styles["Title"]), Spacer(1, 12), Paragraph(content.replace("\\n", "<br/>"), styles["BodyText"])]
+    story = [Paragraph(title, styles["Title"]), Spacer(1, 12), Paragraph(content.replace("\n", "<br/>"), styles["BodyText"])]
     doc.build(story)
     return filename
 
 def match_employee_question(question, emp_data):
     q = question.lower()
+    # Smart salary/leave/join/ssn/profile logic
     if any(x in q for x in ["salary", "payment", "pay", "bonus", "nssf", "income tax"]):
         cols = ["Payment Method", "TRANSPORT", "BONUS", "COMM", "OVERTIME", "ABSENCE", "Loan", "TRN-DD", "InSurance", "FAM ALL", "NSSF 3%", "INCOMETAX", "Total Ded", "Total USD", "Total"]
         return "💰 Salary Breakdown", emp_data[[col for col in cols if col in emp_data.columns]]
@@ -114,7 +148,7 @@ def match_employee_question(question, emp_data):
         return "🌴 Annual Leaves", emp_data[["ANNUAL LEAVES"]]
     elif any(x in q for x in ["social security", "nssf number", "social number"]):
         return "🧾 Social Security Number", emp_data[["SOCIAL SECURITY NUMBER"]]
-    elif any(x in q for x in ["my info", "all my data", "my profile", "my record"]):
+    elif any(x in q for x in ["my details", "all my data", "my info", "full profile", "my record", "show my details", "show my profile"]):
         return "📋 Full Employee Info", emp_data
     return None, None
 
@@ -144,14 +178,6 @@ if not st.session_state.authenticated:
 else:
     ecode = st.session_state.ecode
     emp_data = df[df["ECODE"] == ecode]
-    st.subheader("🧾 Your HR Details")
-    st.dataframe(emp_data)
-
-    pdf_name = f"employee_data_{ecode}.pdf"
-    generate_employee_pdf(emp_data, pdf_name)
-    with open(pdf_name, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-        st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_name}">📥 Download My HR Data (PDF)</a>', unsafe_allow_html=True)
 
     st.subheader("💬 Ask Something")
     query = st.text_input("Ask a policy, HR, or team question...")
@@ -180,9 +206,9 @@ else:
             st.stop()
 
         section, section_text = match_policy_section(query, sections)
-        if section:
+        if section and section_text and "not found" not in section_text.lower():
             st.success(f"🔎 Matched Section: {section}")
-            st.markdown(f"**{section}**\\n\\n{section_text}")
+            st.markdown(f"**{section}**\n\n{section_text}")
             pdf_section = f"section_{section.replace(' ', '_')}.pdf"
             generate_policy_section_pdf(section, section_text, pdf_section)
             with open(pdf_section, "rb") as f:
@@ -194,5 +220,16 @@ else:
                 st.info(response)
                 if table is not None:
                     st.dataframe(table)
+                    # Show PDF download only if employee asks for full details/profile
+                    if "full" in response.lower() or "profile" in response.lower() or "details" in response.lower():
+                        pdf_name = f"employee_data_{ecode}.pdf"
+                        generate_employee_pdf(emp_data, pdf_name)
+                        with open(pdf_name, "rb") as f:
+                            b64 = base64.b64encode(f.read()).decode()
+                            st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_name}">📥 Download My HR Data (PDF)</a>', unsafe_allow_html=True)
             else:
                 st.warning("Sorry, I couldn't match your question. Try rephrasing.")
+
+    # Don't show HR details by default
+    # st.subheader("🧾 Your HR Details")
+    # st.dataframe(emp_data)
