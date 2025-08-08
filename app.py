@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import base64
@@ -100,11 +99,10 @@ def generate_employee_pdf(df, filename):
 def generate_policy_section_pdf(title, content, filename):
     doc = SimpleDocTemplate(filename, pagesize=A4)
     styles = getSampleStyleSheet()
-    story = [Paragraph(title, styles["Title"]), Spacer(1, 12), Paragraph(content.replace("\n", "<br/>"), styles["BodyText"])]
+    story = [Paragraph(title, styles["Title"]), Spacer(1, 12), Paragraph(content.replace("\\n", "<br/>"), styles["BodyText"])]
     doc.build(story)
     return filename
 
-# === Smart HR Answers ===
 def match_employee_question(question, emp_data):
     q = question.lower()
     if any(x in q for x in ["salary", "payment", "pay", "bonus", "nssf", "income tax"]):
@@ -156,12 +154,35 @@ else:
         st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_name}">📥 Download My HR Data (PDF)</a>', unsafe_allow_html=True)
 
     st.subheader("💬 Ask Something")
-    query = st.text_input("Ask a policy or HR question...")
+    query = st.text_input("Ask a policy, HR, or team question...")
+
     if query:
+        # HR Team Gallery (EN/AR)
+        hr_keywords = [
+            "who is hr", "hr team", "human resources team", 
+            "من فريق الموارد", "موظفي الموارد البشرية", "فريق الموارد", "فريق اتش ار"
+        ]
+        if any(kw in query.lower() for kw in hr_keywords):
+            st.subheader('👥 Meet Your HR Team')
+            cols = st.columns(3)
+            cols[0].image('hr_team_photos/thumbnail_IMG_0396.jpg', use_column_width=True)
+            cols[1].image('hr_team_photos/thumbnail_IMG_3345.jpg', use_column_width=True)
+            cols[2].image('hr_team_photos/thumbnail_IMG_3347.jpg', use_column_width=True)
+            cols[0].image('hr_team_photos/thumbnail_IMG_3522.jpg', use_column_width=True)
+            cols[1].image('hr_team_photos/thumbnail_IMG_3529.jpg', use_column_width=True)
+            cols[2].image('hr_team_photos/thumbnail_IMG_3767.jpg', use_column_width=True)
+            cols[0].image('hr_team_photos/thumbnail_IMG_3958.jpg', use_column_width=True)
+            st.stop()
+
+        # Special historical Q&A
+        if "من اغتال ولي عهد النمسا" in query:
+            st.success("فرانس فرديناند")
+            st.stop()
+
         section, section_text = match_policy_section(query, sections)
         if section:
             st.success(f"🔎 Matched Section: {section}")
-            st.markdown(f"**{section}**\n\n{section_text}")
+            st.markdown(f"**{section}**\\n\\n{section_text}")
             pdf_section = f"section_{section.replace(' ', '_')}.pdf"
             generate_policy_section_pdf(section, section_text, pdf_section)
             with open(pdf_section, "rb") as f:
@@ -175,4 +196,3 @@ else:
                     st.dataframe(table)
             else:
                 st.warning("Sorry, I couldn't match your question. Try rephrasing.")
-
