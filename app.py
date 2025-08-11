@@ -10,9 +10,12 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 import re
+import urllib.parse
 
+# Register Unicode font (covers Arabic table text in PDFs)
 pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
 
+# ===== Data loaders =====
 @st.cache_data
 def load_data():
     df = pd.read_excel("PROLOGISTICS.xlsx")
@@ -24,6 +27,7 @@ def load_policy_text():
     with open("capital_partners_policy.txt", "r", encoding="utf-8") as file:
         return file.read()
 
+# ===== Policy parsing =====
 def parse_policy_sections(policy_text):
     section_titles = [
         "CEO Message", "Copyright and Confidentiality Notice", "Change of Record Table", "Approval to Issue",
@@ -46,10 +50,9 @@ def parse_policy_sections(policy_text):
         i += 2
     return sections
 
+# ===== Policy matcher =====
 def match_policy_section(query, sections):
     q = query.lower().strip()
-
-    # Flexible triggers for all policy sections and scenarios
     keywords_map = {
         "1. Purpose and Scope": [
             "who does the code apply", "policy applies", "policy coverage", "مين لازم يلتزم", "لمن يطبق", "scope", "purpose"
@@ -116,7 +119,7 @@ def match_policy_section(query, sections):
         ]
     }
 
-    # Special cases for natural questions
+    # Natural special cases
     if "bully" in q or "bullying" in q or "someone bullies me" in q or "تعرضت للتنمر" in q or "شتمني" in q or "curse" in q or "cursed" in q:
         return "6. Harassment, Discrimination & Workplace Culture", sections.get("6. Harassment, Discrimination & Workplace Culture", "")
     if "bribery" in q or "is bribery allowed" in q or "can i accept a gift" in q or "رشوة" in q or "هدية" in q:
@@ -125,18 +128,20 @@ def match_policy_section(query, sections):
         return "3. Making Ethical Decisions and Speaking Up", sections.get("3. Making Ethical Decisions and Speaking Up", "")
     if "policy" in q or "rule" in q or "code" in q or "ethic" in q or "سياسة" in q or "قانون" in q:
         return "ALL_POLICY", ""
-    # All mapped keywords
+
+    # Keyword map fallbacks
     for section, keywords in keywords_map.items():
         for kw in keywords:
             if kw in q:
                 return section, sections.get(section, "Section content not found.")
-
     return None, "❌ No relevant section found."
 
+# ===== Auth =====
 def authenticate(ecode, pin, pin_df):
     pin_df["PIN"] = pin_df["PIN"].astype(str)
     return not pin_df[(pin_df["ECODE"] == ecode) & (pin_df["PIN"] == pin)].empty
 
+# ===== PDF utilities =====
 def generate_employee_pdf(df, filename):
     doc = SimpleDocTemplate(filename, pagesize=A4)
     data = [["Field", "Value"]]
@@ -146,12 +151,12 @@ def generate_employee_pdf(df, filename):
     table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (-1, -1), 'STSong-Light'),
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE',(0,0),(-1,0),12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 8),
-        ('BACKGROUND',(0,1),(-1,-1),colors.beige),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
     ]))
     story = [table]
     doc.build(story)
@@ -160,45 +165,50 @@ def generate_employee_pdf(df, filename):
 def generate_policy_section_pdf(title, content, filename):
     doc = SimpleDocTemplate(filename, pagesize=A4)
     styles = getSampleStyleSheet()
-    story = [Paragraph(title, styles["Title"]), Spacer(1, 12), Paragraph(content.replace("\n", "<br/>"), styles["BodyText"])]
+    story = [Paragraph(title, styles["Title"]), Spacer(1, 12),
+             Paragraph(content.replace("\n", "<br/>"), styles["BodyText"])]
     doc.build(story)
     return filename
 
+# ===== Employee question matcher (HR data) =====
 def match_employee_question(question, emp_data):
     q = question.lower().strip()
-    # Ultra-flexible triggers for full profile/details
     profile_triggers = [
-        "my details", "all my data", "my info", "full profile", "my record", "show my details", "show my profile", 
+        "my details", "all my data", "my info", "full profile", "my record", "show my details", "show my profile",
         "download my profile", "download my details", "my profile",
         "كل تفاصيل ملفي", "ملفي بالكامل", "جميع معلوماتي", "بياناتي الكاملة", "أريد كل تفاصيل ملفي", "تفاصيل ملفي", "pdf ملفي", "تحميل ملفي", "ملفي"
     ]
     salary_triggers = [
-        "salary", "salary slip", "payment", "pay", "bonus", "nssf", "income tax", "راتبي", "تفاصيل الراتب", "سلم الرواتب", "الراتب", "كم راتبي", "show me my salary breakdown"
+        "salary", "salary slip", "payment", "pay", "bonus", "nssf", "income tax",
+        "راتبي", "تفاصيل الراتب", "سلم الرواتب", "الراتب", "كم راتبي", "show me my salary breakdown"
     ]
     leave_triggers = [
-        "leave", "annual leave", "vacation", "leave balance", "رصيد الإجازات", "عدد الإجازات", "اجازة", "إجازاتي", "رصيدي من الاجازات", "كم اجازتي"
+        "leave", "annual leave", "vacation", "leave balance",
+        "رصيد الإجازات", "عدد الإجازات", "اجازة", "إجازاتي", "رصيدي من الاجازات", "كم اجازتي"
     ]
     nssf_triggers = [
         "social security", "nssf number", "social number", "رقم الضمان", "رقم الضمان الاجتماعي", "ضمان", "الضمان"
     ]
     joining_triggers = [
-        "joining date", "start date", "hire date", "joined", "تاريخ الانضمام", "متى التحاقي", "متى انضممت"
+        "joining date", "start date", "hire date", "joined",
+        "تاريخ الانضمام", "متى التحاقي", "متى انضممت"
     ]
 
     if any(x in q for x in profile_triggers):
         return "📋 Full Employee Info", emp_data
     elif any(x in q for x in salary_triggers):
-        cols = ["Payment Method", "TRANSPORT", "BONUS", "COMM", "OVERTIME", "ABSENCE", "Loan", "TRN-DD", "InSurance", "FAM ALL", "NSSF 3%", "INCOMETAX", "Total Ded", "Total USD", "Total"]
-        return "💰 Salary Breakdown", emp_data[[col for col in cols if col in emp_data.columns]]
+        cols = ["Payment Method", "TRANSPORT", "BONUS", "COMM", "OVERTIME", "ABSENCE", "Loan", "TRN-DD",
+                "InSurance", "FAM ALL", "NSSF 3%", "INCOMETAX", "Total Ded", "Total USD", "Total"]
+        return "💰 Salary Breakdown", emp_data[[c for c in cols if c in emp_data.columns]]
     elif any(x in q for x in joining_triggers):
-        return "📅 Joining Date", emp_data[["JOINING DATE"]]
+        return "📅 Joining Date", emp_data[[c for c in ["JOINING DATE"] if c in emp_data.columns]]
     elif any(x in q for x in leave_triggers):
-        return "🌴 Annual Leaves", emp_data[["ANNUAL LEAVES"]]
+        return "🌴 Annual Leaves", emp_data[[c for c in ["ANNUAL LEAVES"] if c in emp_data.columns]]
     elif any(x in q for x in nssf_triggers):
-        return "🧾 Social Security Number", emp_data[["SOCIAL SECURITY NUMBER"]]
+        return "🧾 Social Security Number", emp_data[[c for c in ["SOCIAL SECURITY NUMBER"] if c in emp_data.columns]]
     return None, None
 
-# === Streamlit UI ===
+# ===== App UI =====
 df, pin_df = load_data()
 policy_text = load_policy_text()
 sections = parse_policy_sections(policy_text)
@@ -225,65 +235,122 @@ else:
     ecode = st.session_state.ecode
     emp_data = df[df["ECODE"] == ecode]
 
-    st.subheader("💬 Ask Something")
-    query = st.text_input("Ask a policy, HR, or team question...")
+    # ---- Tabs: HR Services + Q&A ----
+    tab_services, tab_qa = st.tabs(["🛠️ HR Services", "💬 Ask Something"])
 
-    if query:
-        # HR Team Gallery (EN/AR)
-        hr_keywords = [
-            "who is hr", "hr team", "human resources team", 
-            "من فريق الموارد", "موظفي الموارد البشرية", "فريق الموارد", "فريق اتش ار"
-        ]
-        if any(kw in query.lower() for kw in hr_keywords):
-            st.subheader('👥 Meet Your HR Team')
-            cols = st.columns(3)
-            cols[0].image('hr_team_photos/thumbnail_IMG_0396.jpg', use_column_width=True)
-            cols[1].image('hr_team_photos/thumbnail_IMG_3345.jpg', use_column_width=True)
-            cols[2].image('hr_team_photos/thumbnail_IMG_3347.jpg', use_column_width=True)
-            cols[0].image('hr_team_photos/thumbnail_IMG_3522.jpg', use_column_width=True)
-            cols[1].image('hr_team_photos/thumbnail_IMG_3529.jpg', use_column_width=True)
-            cols[2].image('hr_team_photos/thumbnail_IMG_3767.jpg', use_column_width=True)
-            cols[0].image('hr_team_photos/thumbnail_IMG_3958.jpg', use_column_width=True)
-            cols[2].image('hr_team_photos/thumbnail_IMG_3989.jpg', use_column_width=True)  # NEW PHOTO ADDED!
-            st.stop()
+    # ========== HR SERVICES ==========
+    with tab_services:
+        st.subheader("🗓️ Request Annual Leave")
 
-        # Special historical Q&A
-        if "من اغتال ولي عهد النمسا" in query:
-            st.success("فرانس فرديناند")
-            st.stop()
+        # Name from Excel based on ECODE
+        emp_name = "Unknown"
+        if not emp_data.empty:
+            if "Name" in emp_data.columns and pd.notna(emp_data.iloc[0]["Name"]):
+                emp_name = str(emp_data.iloc[0]["Name"])
+            elif "Employee Name" in emp_data.columns and pd.notna(emp_data.iloc[0]["Employee Name"]):
+                emp_name = str(emp_data.iloc[0]["Employee Name"])
 
-        section, section_text = match_policy_section(query, sections)
-        if section == "ALL_POLICY":
-            st.info("🔎 Please select a policy section to learn more or download:")
-            for sec, txt in sections.items():
-                if sec[0].isdigit():
-                    st.markdown(f"**{sec}** — {txt.split('.')[0][:70]}...")
-                    pdf_section = f"section_{sec.replace(' ', '_')}.pdf"
-                    generate_policy_section_pdf(sec, txt, pdf_section)
-                    with open(pdf_section, "rb") as f:
-                        b64 = base64.b64encode(f.read()).decode()
-                        st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download ({sec})</a>', unsafe_allow_html=True)
-            st.stop()
-        elif section and section_text and "not found" not in section_text.lower():
-            st.success(f"🔎 Matched Section: {section}")
-            st.markdown(f"**{section}**\n\n{section_text}")
-            pdf_section = f"section_{section.replace(' ', '_')}.pdf"
-            generate_policy_section_pdf(section, section_text, pdf_section)
-            with open(pdf_section, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
-                st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download This Policy Section (PDF)</a>', unsafe_allow_html=True)
-        else:
-            response, table = match_employee_question(query, emp_data)
-            if response:
-                st.info(response)
-                if table is not None:
-                    st.dataframe(table)
-                    # Show PDF download only if employee asks for full details/profile (English or Arabic)
-                    if "full" in response.lower() or "profile" in response.lower() or "details" in response.lower() or "ملفي" in query or "تفاصيل" in query or "بياناتي" in query:
-                        pdf_name = f"employee_data_{ecode}.pdf"
-                        generate_employee_pdf(emp_data, pdf_name)
-                        with open(pdf_name, "rb") as f:
+        with st.form("leave_request_form"):
+            col1, col2 = st.columns(2)
+            start_date = col1.date_input("Start date")
+            end_date = col2.date_input("End date")
+            send_btn = st.form_submit_button("📧 Send Email")
+
+        if send_btn:
+            to_email = "ali.zein@prologisticslb.com"
+            subject = "Annual Leave Request"
+            body = f"""Dear Mr Ali,
+
+I am {ecode} and my name is {emp_name}. I am requesting an annual leave from {start_date} to {end_date}.
+
+Kind regards,
+{emp_name}
+"""
+            mailto = (
+                f"mailto:{urllib.parse.quote(to_email)}"
+                f"?subject={urllib.parse.quote(subject)}"
+                f"&body={urllib.parse.quote(body)}"
+            )
+            st.markdown(
+                f'<a href="{mailto}" target="_blank">📨 Click to open your email app and send</a>',
+                unsafe_allow_html=True
+            )
+            st.success("Link ready—click it to send your leave request.")
+
+    # ========== Q&A ==========
+    with tab_qa:
+        st.subheader("💬 Ask Something")
+        query = st.text_input("Ask a policy, HR, or team question...")
+
+        if query:
+            # HR Team Gallery
+            hr_keywords = [
+                "who is hr", "hr team", "human resources team",
+                "من فريق الموارد", "موظفي الموارد البشرية", "فريق الموارد", "فريق اتش ار"
+            ]
+            if any(kw in query.lower() for kw in hr_keywords):
+                st.subheader('👥 Meet Your HR Team')
+                cols = st.columns(3)
+                cols[0].image('hr_team_photos/thumbnail_IMG_0396.jpg', use_column_width=True)
+                cols[1].image('hr_team_photos/thumbnail_IMG_3345.jpg', use_column_width=True)
+                cols[2].image('hr_team_photos/thumbnail_IMG_3347.jpg', use_column_width=True)
+                cols[0].image('hr_team_photos/thumbnail_IMG_3522.jpg', use_column_width=True)
+                cols[1].image('hr_team_photos/thumbnail_IMG_3529.jpg', use_column_width=True)
+                cols[2].image('hr_team_photos/thumbnail_IMG_3767.jpg', use_column_width=True)
+                cols[0].image('hr_team_photos/thumbnail_IMG_3958.jpg', use_column_width=True)
+                cols[2].image('hr_team_photos/thumbnail_IMG_3989.jpg', use_column_width=True)  # added
+                st.stop()
+
+            # Special historical Q&A
+            if "من اغتال ولي عهد النمسا" in query:
+                st.success("فرانس فرديناند")
+                st.stop()
+
+            # Policy
+            section, section_text = match_policy_section(query, sections)
+            if section == "ALL_POLICY":
+                st.info("🔎 Please select a policy section to learn more or download:")
+                for sec, txt in sections.items():
+                    if sec and sec[0].isdigit():
+                        st.markdown(f"**{sec}** — {txt.split('.')[0][:70]}...")
+                        pdf_section = f"section_{sec.replace(' ', '_')}.pdf"
+                        generate_policy_section_pdf(sec, txt, pdf_section)
+                        with open(pdf_section, "rb") as f:
                             b64 = base64.b64encode(f.read()).decode()
-                            st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="{pdf_name}">📥 Download My HR Data (PDF)</a>', unsafe_allow_html=True)
+                            st.markdown(
+                                f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download ({sec})</a>',
+                                unsafe_allow_html=True
+                            )
+                st.stop()
+            elif section and section_text and "not found" not in section_text.lower():
+                st.success(f"🔎 Matched Section: {section}")
+                st.markdown(f"**{section}**\n\n{section_text}")
+                pdf_section = f"section_{section.replace(' ', '_')}.pdf"
+                generate_policy_section_pdf(section, section_text, pdf_section)
+                with open(pdf_section, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode()
+                    st.markdown(
+                        f'<a href="data:application/pdf;base64,{b64}" download="{pdf_section}">📥 Download This Policy Section (PDF)</a>',
+                        unsafe_allow_html=True
+                    )
             else:
-                st.warning("Sorry, I couldn't match your question. Try rephrasing.")
+                # HR data questions (salary/leaves/joining/SSN/full profile)
+                response, table = match_employee_question(query, emp_data)
+                if response:
+                    st.info(response)
+                    if table is not None and not table.empty:
+                        st.dataframe(table)
+                        # PDF only if asking for full profile/details
+                        if ("full" in response.lower() or "profile" in response.lower()
+                            or "details" in response.lower()
+                            or "ملفي" in query or "تفاصيل" in query or "بياناتي" in query):
+                            pdf_name = f"employee_data_{ecode}.pdf"
+                            generate_employee_pdf(emp_data, pdf_name)
+                            with open(pdf_name, "rb") as f:
+                                b64 = base64.b64encode(f.read()).decode()
+                                st.markdown(
+                                    f'<a href="data:application/pdf;base64,{b64}" download="{pdf_name}">📥 Download My HR Data (PDF)</a>',
+                                    unsafe_allow_html=True
+                                )
+                else:
+                    st.warning("Sorry, I couldn't match your question. Try rephrasing.")
