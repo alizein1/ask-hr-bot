@@ -11,7 +11,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 import re
 import urllib.parse
-from streamlit.components.v1 import html  # for Outlook/mailto/web fallback button
+from streamlit.components.v1 import html  # for Outlook Web / mailto compose
 
 # Register Unicode font (covers Arabic table text in PDFs)
 pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
@@ -255,7 +255,7 @@ else:
             col1, col2 = st.columns(2)
             start_date = col1.date_input("Start date")
             end_date = col2.date_input("End date")
-            send_btn = st.form_submit_button("📧 Send Email")
+            send_btn = st.form_submit_button("📧 Open in Outlook Web / PWA")
 
         if send_btn:
             to_email = "ali.zein@prologisticslb.com"
@@ -268,10 +268,16 @@ Kind regards,
 {emp_name}
 """
 
-            # Build 3 compose URLs: Outlook Desktop -> mailto -> Outlook Web
-            ms_outlook_url = (
-                "ms-outlook://compose?"
+            # Prefer Outlook Web (outlook.office.com), then Outlook Live (personal), then mailto
+            outlook_web_url = (
+                "https://outlook.office.com/mail/deeplink/compose?"
                 f"to={urllib.parse.quote(to_email)}"
+                f"&subject={urllib.parse.quote(subject)}"
+                f"&body={urllib.parse.quote(body)}"
+            )
+            outlook_live_url = (
+                "https://outlook.live.com/owa/?path=/mail/action/compose"
+                f"&to={urllib.parse.quote(to_email)}"
                 f"&subject={urllib.parse.quote(subject)}"
                 f"&body={urllib.parse.quote(body)}"
             )
@@ -280,51 +286,46 @@ Kind regards,
                 f"?subject={urllib.parse.quote(subject)}"
                 f"&body={urllib.parse.quote(body)}"
             )
-            outlook_web_url = (
-                "https://outlook.office.com/mail/deeplink/compose?"
-                f"to={urllib.parse.quote(to_email)}"
-                f"&subject={urllib.parse.quote(subject)}"
-                f"&body={urllib.parse.quote(body)}"
-            )
 
             html(f"""
               <div style="margin-top:8px;">
-                <button id="sendOutlook" style="padding:10px 14px; font-size:16px; cursor:pointer;">
-                  📨 Send via Outlook
+                <button id="sendOutlookWeb" style="padding:10px 14px; font-size:16px; cursor:pointer;">
+                  📨 Open in Outlook Web / PWA
                 </button>
-                <div id="hint" style="color:#666; font-size:12px; margin-top:6px;">
-                  If your browser asks for permission, choose <b>Allow</b>. If the first method is blocked, we will try other methods automatically.
+                <div style="color:#666; font-size:12px; margin-top:6px;">
+                  We’ll open Outlook on the web. If a pop-up is blocked, allow pop-ups for this site.
                 </div>
               </div>
               <script>
                 (function() {{
                   const urls = [
-                    "{ms_outlook_url}",
-                    "{mailto_url}",
-                    "{outlook_web_url}"
+                    "{outlook_web_url}",
+                    "{outlook_live_url}",
+                    "{mailto_url}"
                   ];
-                  function openUrl(u) {{
-                    window.location.href = u;
+                  function tryOpen(u) {{
+                    const w = window.open(u, '_blank');
+                    if (!w) {{
+                      window.location.href = u;
+                    }}
                   }}
-                  function tryAll() {{
+                  function run() {{
                     let i = 0;
                     function step() {{
                       if (i >= urls.length) return;
-                      const u = urls[i++];
-                      openUrl(u);
-                      setTimeout(step, 900);
+                      tryOpen(urls[i++]);
+                      setTimeout(step, 800);
                     }}
                     step();
                   }}
-                  const btn = document.getElementById("sendOutlook");
-                  btn.addEventListener("click", function(e) {{
+                  document.getElementById("sendOutlookWeb").addEventListener("click", function(e) {{
                     e.preventDefault();
-                    tryAll();
+                    run();
                   }});
                 }})();
               </script>
             """, height=120)
-            st.success("Click “Send via Outlook” above. If Outlook is blocked, the app will fall back to your default mail app, then Outlook Web.")
+            st.success("Click “Open in Outlook Web / PWA”. If a pop-up is blocked, allow pop-ups and click again.")
 
     # ========== Q&A ==========
     with tab_qa:
