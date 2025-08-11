@@ -11,6 +11,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 import re
 import urllib.parse
+from streamlit.components.v1 import html  # for Outlook/mailto/web fallback button
 
 # Register Unicode font (covers Arabic table text in PDFs)
 pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
@@ -209,11 +210,11 @@ def match_employee_question(question, emp_data):
     return None, None
 
 # ===== App UI =====
+st.set_page_config(page_title="Ask HR - Capital Partners Group", layout="wide")
 df, pin_df = load_data()
 policy_text = load_policy_text()
 sections = parse_policy_sections(policy_text)
 
-st.set_page_config("Ask HR - Capital Partners Group", layout="wide")
 st.image("logo.png", width=150)
 st.image("middle_banner_image.png", width=600)
 st.title("🤖 Ask HR - Capital Partners Group")
@@ -266,16 +267,64 @@ I am {ecode} and my name is {emp_name}. I am requesting an annual leave from {st
 Kind regards,
 {emp_name}
 """
-            mailto = (
+
+            # Build 3 compose URLs: Outlook Desktop -> mailto -> Outlook Web
+            ms_outlook_url = (
+                "ms-outlook://compose?"
+                f"to={urllib.parse.quote(to_email)}"
+                f"&subject={urllib.parse.quote(subject)}"
+                f"&body={urllib.parse.quote(body)}"
+            )
+            mailto_url = (
                 f"mailto:{urllib.parse.quote(to_email)}"
                 f"?subject={urllib.parse.quote(subject)}"
                 f"&body={urllib.parse.quote(body)}"
             )
-            st.markdown(
-                f'<a href="{mailto}" target="_blank">📨 Click to open your email app and send</a>',
-                unsafe_allow_html=True
+            outlook_web_url = (
+                "https://outlook.office.com/mail/deeplink/compose?"
+                f"to={urllib.parse.quote(to_email)}"
+                f"&subject={urllib.parse.quote(subject)}"
+                f"&body={urllib.parse.quote(body)}"
             )
-            st.success("Link ready—click it to send your leave request.")
+
+            html(f"""
+              <div style="margin-top:8px;">
+                <button id="sendOutlook" style="padding:10px 14px; font-size:16px; cursor:pointer;">
+                  📨 Send via Outlook
+                </button>
+                <div id="hint" style="color:#666; font-size:12px; margin-top:6px;">
+                  If your browser asks for permission, choose <b>Allow</b>. If the first method is blocked, we will try other methods automatically.
+                </div>
+              </div>
+              <script>
+                (function() {{
+                  const urls = [
+                    "{ms_outlook_url}",
+                    "{mailto_url}",
+                    "{outlook_web_url}"
+                  ];
+                  function openUrl(u) {{
+                    window.location.href = u;
+                  }}
+                  function tryAll() {{
+                    let i = 0;
+                    function step() {{
+                      if (i >= urls.length) return;
+                      const u = urls[i++];
+                      openUrl(u);
+                      setTimeout(step, 900);
+                    }}
+                    step();
+                  }}
+                  const btn = document.getElementById("sendOutlook");
+                  btn.addEventListener("click", function(e) {{
+                    e.preventDefault();
+                    tryAll();
+                  }});
+                }})();
+              </script>
+            """, height=120)
+            st.success("Click “Send via Outlook” above. If Outlook is blocked, the app will fall back to your default mail app, then Outlook Web.")
 
     # ========== Q&A ==========
     with tab_qa:
@@ -307,10 +356,11 @@ Kind regards,
                 st.stop()
 
             # Policy
-            section, section_text = match_policy_section(query, sections)
+            sections_dict = sections  # already parsed
+            section, section_text = match_policy_section(query, sections_dict)
             if section == "ALL_POLICY":
                 st.info("🔎 Please select a policy section to learn more or download:")
-                for sec, txt in sections.items():
+                for sec, txt in sections_dict.items():
                     if sec and sec[0].isdigit():
                         st.markdown(f"**{sec}** — {txt.split('.')[0][:70]}...")
                         pdf_section = f"section_{sec.replace(' ', '_')}.pdf"
