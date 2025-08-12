@@ -338,18 +338,37 @@ Kind regards,
                 "who is hr", "hr team", "human resources team",
                 "من فريق الموارد", "موظفي الموارد البشرية", "فريق الموارد", "فريق اتش ار"
             ]
-            if any(kw in query.lower() for kw in hr_keywords):
-                st.subheader('👥 Meet Your HR Team')
-                cols = st.columns(3)
-                cols[0].image('hr_team_photos/thumbnail_IMG_0396.jpg', use_column_width=True)
-                cols[1].image('hr_team_photos/thumbnail_IMG_3345.jpg', use_column_width=True)
-                cols[2].image('hr_team_photos/thumbnail_IMG_3347.jpg', use_column_width=True)
-                cols[0].image('hr_team_photos/thumbnail_IMG_3522.jpg', use_column_width=True)
-                cols[1].image('hr_team_photos/thumbnail_IMG_3529.jpg', use_column_width=True)
-                cols[2].image('hr_team_photos/thumbnail_IMG_3767.jpg', use_column_width=True)
-                cols[0].image('hr_team_photos/thumbnail_IMG_3958.jpg', use_column_width=True)
-                cols[2].image('hr_team_photos/thumbnail_IMG_3989.jpg', use_column_width=True)  # added
-                st.stop()
+if any(kw in query.lower() for kw in hr_keywords):
+    st.subheader('👥 MEET YOUR HR TEAM')
+
+    # Images Grid
+    cols = st.columns(3)
+    cols[0].image('hr_team_photos/thumbnail_IMG_0396.jpg', use_column_width=True)
+    cols[1].image('hr_team_photos/thumbnail_IMG_3345.jpg', use_column_width=True)
+    cols[2].image('hr_team_photos/thumbnail_IMG_3347.jpg', use_column_width=True)
+    cols[0].image('hr_team_photos/thumbnail_IMG_3522.jpg', use_column_width=True)
+    cols[1].image('hr_team_photos/thumbnail_IMG_3529.jpg', use_column_width=True)
+    cols[2].image('hr_team_photos/thumbnail_IMG_3767.jpg', use_column_width=True)
+    cols[0].image('hr_team_photos/thumbnail_IMG_3958.jpg', use_column_width=True)
+    cols[2].image('hr_team_photos/thumbnail_IMG_3989.jpg', use_column_width=True)
+
+    # Names & Titles list below the images
+    st.markdown("""
+    **FADEL MAKKI** — CHIEF HR OFFICER  
+    **HUSSEIN ZREIK** — HUMAN RESOURCES MANAGER  
+    **ALI ZEIN** — HUMAN RESOURCES GENERALIST  
+    **RAMI HAWA** — RECRUITMENT MANAGER  
+    **ALI SHEHADI** — PUBLIC RELATIONS OFFICER  
+    **LAMA SNIH** — RECRUITMENT OFFICER  
+    **SARA ZANKAR** — SENIOR RECRUITER SPECIALIST  
+    **NOUR MUBARAK** — SENIOR PAYROLL SPECIALIST  
+    **FATIMA MAAZ** — RECRUITMENT OFFICER  
+    **ANGELA SARKIS** — JUNIOR RECRUITER  
+    **HANI CHALHOUN** — PAYROLL MANAGER
+    """)
+
+    st.stop()
+
 
             # Special historical Q&A
             if "من اغتال ولي عهد النمسا" in query:
